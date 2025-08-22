@@ -1,6 +1,8 @@
-https://book.leptos.dev/
-https://tauri.app/concept/
+https://tauri.app/develop/
+
 https://docs.rs/webtoon/0.9.0/webtoon/
+https://crates.io/crates/anyhow-tauri
+
 https://tauri.app/plugin/biometric/
 https://tauri.app/plugin/http-client/
 https://tauri.app/plugin/store/

@@ -4,13 +4,12 @@
   "version": "0.1.0",
   "identifier": "com.ilingu.fosstoon",
   "build": {
-    "beforeDevCommand": "trunk serve",
+    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "trunk build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "title": "fosstoon",
