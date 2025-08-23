@@ -1,53 +1,30 @@
+mod store;
 mod webtoon_handler;
 
-use webtoon::platform::webtoons::{errors::Error, Client, Type};
+use crate::store::UserData;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Haudi, {}! You've been greeted from the dev!", name)
-}
-
-#[tauri::command]
-async fn get_image() -> Result<String, String> {
-    let client = Client::new();
-
-    let Some(webtoon) = client
-        .webtoon(843910, Type::Canvas)
-        .await
-        .map_err(|_| "Failed to get webtoon".to_string())?
-    else {
-        panic!("No webtoon of given id and type exits");
-    };
-
-    let episode = webtoon
-        .episode(1)
-        .await
-        .map_err(|_| "Failed to get ep".to_string())?
-        .ok_or("No ep".to_string())?;
-
-    let panels = episode
-        .download()
-        .await
-        .map_err(|_| "Failed to save to disk".to_string())?;
-
-    // Save as a single, long image.
-    panels
-        .save_single("examples/panels")
-        .await
-        .map_err(|_| "Failed to save to disk".to_string())?;
-
-    Ok("".to_string())
-}
+use tauri::Manager;
+use tauri_plugin_store::StoreExt;
+use tokio::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // load user state
-
     tauri::Builder::default()
-        // .manage(MyState("some state value".into())) -> inject user state into app
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(|app| {
+            // load user store
+            let store = app.store("userstore.json")?;
+            let user_webtoons =
+                serde_json::from_value::<UserData>(store.get("user_webtoons").unwrap_or_default())
+                    .unwrap_or_default();
+
+            // inject user store
+            app.manage(Mutex::new(user_webtoons));
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        // .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

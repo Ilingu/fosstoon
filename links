@@ -6,4 +6,4 @@ https://tauri.app/plugin/biometric/
 https://tauri.app/plugin/http-client/
 https://tauri.app/plugin/store/
 
-https://github.com/material-components/material-web/blob/main/docs/quick-start.md
+https://docs.rs/webtoon/0.9.0/webtoon/platform/webtoons/webtoon/struct.Webtoon.html#method.id
