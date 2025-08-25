@@ -17,7 +17,7 @@ pub struct WebtoonId {
     pub wt_type: Type,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct WebtoonInfo {
     pub id: WebtoonId,
 
@@ -131,10 +131,10 @@ impl WebtoonInfo {
 
 #[tauri::command]
 pub async fn search_webtoon(
-    user_data: tauri::State<'_, Mutex<UserData>>,
+    user_state: tauri::State<'_, Mutex<UserData>>,
     query: &str,
 ) -> Result<Vec<WebtoonSearchInfo>, String> {
-    let user_langage = user_data.lock().await.language;
+    let user_langage = user_state.lock().await.language;
 
     let client = webtoons::Client::new();
     let search_result = client
@@ -166,9 +166,9 @@ pub async fn get_webtoon_info(id: WebtoonId) -> Result<WebtoonInfo, String> {
 #[tauri::command]
 /// get canvas and original (check exemple)
 pub async fn get_homepage_recommandations(
-    user_data: tauri::State<'_, Mutex<UserData>>,
+    user_state: tauri::State<'_, Mutex<UserData>>,
 ) -> Result<Vec<WebtoonSearchInfo>, String> {
-    let user_langage = user_data.lock().await.language;
+    let user_langage = user_state.lock().await.language;
 
     let wt_client = webtoons::Client::new();
 

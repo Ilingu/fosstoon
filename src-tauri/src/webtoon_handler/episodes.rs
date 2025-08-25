@@ -5,7 +5,7 @@ use crate::webtoon_handler::webtoon::WebtoonId;
 
 pub type EpNum = u16;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct EpisodeInfo {
     pub wt_id: WebtoonId,
 
@@ -23,7 +23,7 @@ pub struct EpisodeInfo {
 }
 
 /// for the app simplicity sake, no replies will be fetch in this app
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Post {
     pub wt_id: WebtoonId,
     pub ep_num: EpNum,
