@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
 #[derive(Debug, Clone)]
 pub enum AlertLevel {
@@ -6,6 +6,12 @@ pub enum AlertLevel {
     Info,
     Warning,
     Error,
+}
+
+impl Display for AlertLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", format!("{self:?}").to_lowercase())
+    }
 }
 
 #[derive(Debug, Clone)]

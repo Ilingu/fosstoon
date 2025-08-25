@@ -1,8 +1,12 @@
+use std::time::Duration;
+
 use leptos::task::spawn_local;
 use leptos::{ev::SubmitEvent, prelude::*};
 use leptos_meta::Style;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
+
+use crate::utility::types::{Alert, AlertLevel};
 
 #[wasm_bindgen]
 extern "C" {
@@ -17,6 +21,9 @@ struct GreetArgs<'a> {
 
 #[component]
 pub fn Home() -> impl IntoView {
+    let push_toast =
+        use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
+
     let (name, set_name) = signal(String::new());
     let (greet_msg, set_greet_msg) = signal(String::new());
 
@@ -26,6 +33,13 @@ pub fn Home() -> impl IntoView {
     };
 
     let greet = move |ev: SubmitEvent| {
+        push_toast.run(Alert {
+            id: 0,
+            msg: "Test message".to_string(),
+            level: AlertLevel::Success,
+            duration: Duration::from_secs(10),
+        });
+
         ev.prevent_default();
         spawn_local(async move {
             let name = name.get_untracked();

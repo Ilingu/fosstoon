@@ -21,7 +21,7 @@ pub fn App() -> impl IntoView {
             alert.duration,
         )
     };
-    provide_context(push_toast);
+    provide_context(Callback::new(push_toast));
 
     view! {
         <Router>
