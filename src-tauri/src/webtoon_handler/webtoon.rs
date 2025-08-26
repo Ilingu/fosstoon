@@ -4,11 +4,9 @@ use tokio::sync::Mutex;
 use webtoon::platform::webtoons::{
     self, canvas, meta::Genre, originals::Schedule, Language, Type, Webtoon,
 };
+use webtoon_sdk::{episodes::EpisodePreview, WebtoonId as SDKWtId};
 
-use crate::{
-    store::UserData,
-    webtoon_handler::episodes::{fetch_episodes, EpisodeInfo},
-};
+use crate::store::UserData;
 
 /* Type Definition */
 #[derive(Serialize, Clone, Copy, Deserialize)]
@@ -34,7 +32,7 @@ pub struct WebtoonInfo {
     pub subs: u32,
     pub summary: String,
 
-    pub episodes: Option<Vec<EpisodeInfo>>,
+    pub episodes: Option<Vec<EpisodePreview>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,6 +49,30 @@ pub struct WebtoonSearchInfo {
 impl WebtoonId {
     pub fn new(id: u32, wt_type: Type) -> Self {
         Self { wt_id: id, wt_type }
+    }
+}
+
+impl From<WebtoonId> for SDKWtId {
+    fn from(value: WebtoonId) -> Self {
+        Self {
+            wt_id: value.wt_id,
+            wt_type: match value.wt_type {
+                Type::Original => webtoon_sdk::WtType::Original,
+                Type::Canvas => webtoon_sdk::WtType::Canvas,
+            },
+        }
+    }
+}
+
+impl From<SDKWtId> for WebtoonId {
+    fn from(value: SDKWtId) -> Self {
+        Self {
+            wt_id: value.wt_id,
+            wt_type: match value.wt_type {
+                webtoon_sdk::WtType::Canvas => Type::Canvas,
+                webtoon_sdk::WtType::Original => Type::Original,
+            },
+        }
     }
 }
 
@@ -77,15 +99,7 @@ impl WebtoonInfo {
 
     /// **DOES NOT INCLUDE COMMENTS**
     pub async fn update_episodes(&mut self) -> Result<(), String> {
-        let wtclient = webtoons::Client::new();
-
-        let webtoon = wtclient
-            .webtoon(self.id.wt_id, self.id.wt_type)
-            .await
-            .map_err(|err| err.to_string())?
-            .ok_or("Webtoon not found")?;
-
-        self.episodes = Some(fetch_episodes(&webtoon).await?);
+        self.episodes = Some(webtoon_sdk::episodes::scrap_episodes_info(self.id.into()).await?);
         Ok(())
     }
 

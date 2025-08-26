@@ -36,3 +36,4 @@ futures = "0.3.31"
 # App's crate
 webtoon = "0.9.0"
 nanorand = "0.8.0"
+webtoon_sdk = {path = "../webtoon_sdk"}

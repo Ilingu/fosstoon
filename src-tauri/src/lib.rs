@@ -4,7 +4,14 @@ mod webtoon_handler;
 
 use crate::{
     constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY},
-    store::{UserData, UserWebtoons},
+    store::{
+        change_language, subscribe_to_webtoon, unsubscribe_from_webtoon, UserData, UserWebtoons,
+    },
+    webtoon_handler::{
+        creator::get_author_info,
+        episodes::{get_episode_data, get_episode_post},
+        webtoon::{get_homepage_recommandations, get_webtoon_info, search_webtoon},
+    },
 };
 
 use tauri::Manager;
@@ -36,7 +43,21 @@ pub fn run() -> Result<(), String> {
             app.manage(Mutex::new(user_data));
             Ok(())
         })
-        // .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            // // stores
+            subscribe_to_webtoon,
+            unsubscribe_from_webtoon,
+            change_language,
+            // webtoons
+            search_webtoon,
+            get_webtoon_info,
+            get_homepage_recommandations,
+            // episodes
+            get_episode_post,
+            get_episode_data,
+            // author
+            get_author_info
+        ])
         .run(tauri::generate_context!())
         .map_err(|_| "Failed to launch tauri app")?;
     Ok(())

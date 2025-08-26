@@ -1,32 +1,14 @@
 use serde::{Deserialize, Serialize};
-use webtoon::platform::webtoons::{self, webtoon::episode::AdStatus, Webtoon};
+use webtoon::platform::webtoons::{self};
+use webtoon_sdk::episodes::{EpisodeData, EpisodePreview};
 
 use crate::webtoon_handler::webtoon::WebtoonId;
-
-pub type EpNum = u16;
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct EpisodeInfo {
-    pub wt_id: WebtoonId,
-
-    /// the episode number
-    pub number: EpNum,
-    pub title: String,
-    pub thumbnail: String,
-    pub has_ad_wall: bool,
-    pub views: Option<u32>,
-    pub likes: u32,
-    pub author_note: Option<String>,
-    /// all the episode image/panel url
-    pub panels_url: Vec<String>,
-    // pub top_posts: Option<Vec<Post>>,
-}
 
 /// for the app simplicity sake, no replies will be fetch in this app
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Post {
     pub wt_id: WebtoonId,
-    pub ep_num: EpNum,
+    pub ep_num: usize,
 
     pub id: String,
     pub content: String,
@@ -37,8 +19,12 @@ pub struct Post {
     pub poster_name: String,
 }
 
-impl EpisodeInfo {
-    pub async fn fetch_posts(wt_id: WebtoonId, ep_num: u16) -> Result<Vec<Post>, String> {
+pub trait PostExtension {
+    async fn fetch_posts(wt_id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String>;
+}
+
+impl PostExtension for EpisodeData {
+    async fn fetch_posts(wt_id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String> {
         let wtclient = webtoons::Client::new();
 
         let webtoon = wtclient
@@ -47,7 +33,7 @@ impl EpisodeInfo {
             .map_err(|err| err.to_string())?
             .ok_or("Webtoon not found")?;
         let episode = webtoon
-            .episode(ep_num)
+            .episode(ep_num as u16)
             .await
             .map_err(|err| err.to_string())?
             .ok_or("Episode not found")?;
@@ -74,39 +60,14 @@ impl EpisodeInfo {
     }
 }
 
-/* Helpers */
-
-pub async fn fetch_episodes(webtoon: &Webtoon) -> Result<Vec<EpisodeInfo>, String> {
-    let episodes = webtoon.episodes().await.map_err(|err| err.to_string())?;
-
-    let mut episodes_info = vec![];
-    for episode in episodes {
-        let episode_info = EpisodeInfo {
-            wt_id: WebtoonId::new(webtoon.id(), webtoon.r#type()),
-            number: episode.number(),
-            title: episode.title().await.map_err(|err| err.to_string())?,
-            thumbnail: episode.thumbnail().await.map_err(|err| err.to_string())?,
-            has_ad_wall: matches!(episode.ad_status(), Some(AdStatus::Yes)),
-            views: episode.views(),
-            likes: episode.likes().await.map_err(|err| err.to_string())?,
-            author_note: episode.note().await.map_err(|err| err.to_string())?,
-            panels_url: episode
-                .panels()
-                .await
-                .map_err(|err| err.to_string())?
-                .iter()
-                .map(|p| p.url().to_string())
-                .collect(),
-        };
-        episodes_info.push(episode_info);
-    }
-
-    Ok(episodes_info)
-}
-
 /* Commands */
 
 #[tauri::command]
-pub async fn get_episode_posts(id: WebtoonId, ep_num: u16) -> Result<Vec<Post>, String> {
-    EpisodeInfo::fetch_posts(id, ep_num).await
+pub async fn get_episode_post(id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String> {
+    webtoon_sdk::episodes::EpisodeData::fetch_posts(id, ep_num).await
+}
+
+#[tauri::command]
+pub async fn get_episode_data(ep: EpisodePreview) -> Result<EpisodeData, String> {
+    ep.get_episode_data().await
 }

@@ -1,7 +1,9 @@
-use webtoon::platform::webtoons::{self, Language};
+use serde::{Deserialize, Serialize};
 
 use crate::webtoon_handler::webtoon::WebtoonInfo;
+use webtoon::platform::webtoons::{self, Language};
 
+#[derive(Serialize, Deserialize)]
 pub struct CreatorInfo {
     profile_id: String,
 
@@ -12,11 +14,14 @@ pub struct CreatorInfo {
 }
 
 impl CreatorInfo {
-    pub async fn fetch_creator_data(profile_id: &str, language: Language) -> Result<Self, String> {
+    pub async fn fetch_creator_data(
+        profile_id: String,
+        language: Language,
+    ) -> Result<Self, String> {
         let wt_client = webtoons::Client::new();
 
         let creator = wt_client
-            .creator(profile_id, language)
+            .creator(&profile_id, language)
             .await
             .map_err(|err| err.to_string())?
             .ok_or("Creator not found")?;
@@ -44,6 +49,9 @@ impl CreatorInfo {
 }
 
 #[tauri::command]
-pub async fn get_author_info(profile_id: &str, language: Language) -> Result<CreatorInfo, String> {
+pub async fn get_author_info(
+    profile_id: String,
+    language: Language,
+) -> Result<CreatorInfo, String> {
     CreatorInfo::fetch_creator_data(profile_id, language).await
 }
