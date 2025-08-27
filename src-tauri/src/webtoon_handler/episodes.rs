@@ -5,7 +5,7 @@ use webtoon_sdk::episodes::{EpisodeData, EpisodePreview};
 use crate::webtoon_handler::webtoon::WebtoonId;
 
 /// for the app simplicity sake, no replies will be fetch in this app
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Post {
     pub wt_id: WebtoonId,
     pub ep_num: usize,

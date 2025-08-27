@@ -9,13 +9,13 @@ use webtoon_sdk::{episodes::EpisodePreview, WebtoonId as SDKWtId};
 use crate::store::UserData;
 
 /* Type Definition */
-#[derive(Serialize, Clone, Copy, Deserialize)]
+#[derive(Serialize, Clone, Copy, Deserialize, Debug)]
 pub struct WebtoonId {
     pub wt_id: u32,
     pub wt_type: Type,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WebtoonInfo {
     pub id: WebtoonId,
 
@@ -35,7 +35,7 @@ pub struct WebtoonInfo {
     pub episodes: Option<Vec<EpisodePreview>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct WebtoonSearchInfo {
     id: WebtoonId,
 

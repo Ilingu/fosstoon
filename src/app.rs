@@ -10,7 +10,7 @@ use leptos_router::{
 pub fn App() -> impl IntoView {
     let (alerts, set_alerts) = signal::<Vec<Alert>>(vec![]);
     let push_toast = move |mut alert: Alert| {
-        let a_id = match alerts.get().last() {
+        let a_id = match alerts.get_untracked().last() {
             Some(a) => a.id + 1,
             None => 0,
         };

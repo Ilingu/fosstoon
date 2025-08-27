@@ -11,7 +11,7 @@ use crate::{
 
 /* TYPE DEF */
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UserWebtoon {
     pub id: WebtoonId,
     pub title: String,
@@ -22,7 +22,7 @@ pub struct UserWebtoon {
 
 pub type UserWebtoons = HashMap<u32, UserWebtoon>;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Debug)]
 pub struct UserData {
     pub language: Language,
     pub webtoons: UserWebtoons,

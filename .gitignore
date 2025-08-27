@@ -3,3 +3,4 @@
 /Cargo.lock
 *.css.map
 *.css
+/requests.http
