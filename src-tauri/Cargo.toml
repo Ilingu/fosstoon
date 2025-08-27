@@ -21,7 +21,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Tauri
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tauri-plugin-log = "2"
@@ -40,3 +40,4 @@ futures = "0.3.31"
 webtoon = "0.9.0"
 nanorand = "0.8.0"
 webtoon_sdk = {path = "../webtoon_sdk"}
+tauri-plugin-http = "2"

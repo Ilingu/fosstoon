@@ -1,3 +1,5 @@
+use std::fs;
+
 pub mod types;
 
 #[macro_export]
@@ -30,4 +32,22 @@ macro_rules! parse_or_toast {
             Ok(Err(e)) | Err(e) => return $push_toast.run(Alert::new(e, AlertLevel::Error, None)),
         }
     };
+}
+
+const IS_ANDROID: bool = true;
+/*
+#[cfg(any(windows, target_os = "android"))]
+let base = ;
+#[cfg(not(any(windows, target_os = "android")))]
+let base = ;
+*/
+
+pub fn convert_file_src(file_path: &str) -> String {
+    let base = match IS_ANDROID {
+        true => "http://asset.localhost/",
+        false => "asset://localhost/",
+    };
+
+    let urlencoded_path = urlencoding::encode(file_path);
+    format!("{base}{urlencoded_path}")
 }

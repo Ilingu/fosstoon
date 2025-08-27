@@ -1,9 +1,11 @@
 mod constants;
+mod image_handler;
 mod store;
 mod webtoon_handler;
 
 use crate::{
     constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY},
+    image_handler::fetch_wt_imgs,
     store::{
         change_language, subscribe_to_webtoon, unsubscribe_from_webtoon, UserData, UserWebtoons,
     },
@@ -22,6 +24,7 @@ use webtoon::platform::webtoons::Language;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() -> Result<(), String> {
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(tauri_plugin_log::Target::new(
@@ -63,7 +66,9 @@ pub fn run() -> Result<(), String> {
             get_episode_post,
             get_episode_data,
             // author
-            get_author_info
+            get_author_info,
+            // images
+            fetch_wt_imgs
         ])
         .run(tauri::generate_context!())
         .map_err(|_| "Failed to launch tauri app")?;

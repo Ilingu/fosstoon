@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 use webtoon::platform::webtoons::{self};
 use webtoon_sdk::episodes::{EpisodeData, EpisodePreview};
 
-use crate::webtoon_handler::webtoon::WebtoonId;
+use crate::{
+    image_handler::{download_images, fetch_wt_imgs},
+    webtoon_handler::webtoon::WebtoonId,
+};
 
 /// for the app simplicity sake, no replies will be fetch in this app
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -68,6 +72,15 @@ pub async fn get_episode_post(id: WebtoonId, ep_num: usize) -> Result<Vec<Post>,
 }
 
 #[tauri::command]
-pub async fn get_episode_data(ep: EpisodePreview) -> Result<EpisodeData, String> {
-    ep.get_episode_data().await
+pub async fn get_episode_data(
+    app: tauri::AppHandle,
+    ep: EpisodePreview,
+) -> Result<EpisodeData, String> {
+    let mut ep_data = ep.get_episode_data().await?;
+
+    // episodes panels are stored temporarily in cache
+    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let local_path = download_images(cache_dir, ep_data.panels).await?;
+    ep_data.panels = local_path;
+    Ok(ep_data)
 }
