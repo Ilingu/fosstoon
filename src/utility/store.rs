@@ -37,7 +37,7 @@ impl From<UserWebtoon> for WebtoonSearchInfo {
     }
 }
 
-#[derive(Debug, Default, Clone, Deserialize)]
+#[derive(Debug, Default, Clone, Deserialize, PartialEq)]
 pub enum LoadingState {
     #[default]
     Loading,

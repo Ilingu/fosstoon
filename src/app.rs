@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-use leptos::prelude::*;
+use leptos::{leptos_dom::logging::console_log, prelude::*};
 use leptos_router::{
     components::{Route, Router, Routes},
     path,
@@ -31,33 +31,30 @@ pub fn App() -> impl IntoView {
     let user_data_resp = LocalResource::new(move || invoke_without_args("get_user_data"));
 
     Effect::new(move |_| {
-        let user_data = match user_data_resp
-            .get()
-            .map(|opv| {
-                opv.map(|v| {
-                    serde_wasm_bindgen::from_value::<UserData>(v)
-                        .map_err(|_| "Failed to parse data as the right struct".to_string())
-                })
-                .map_err(|e| {
-                    e.as_string().unwrap_or(
-                        "An error happened, but we can't provide more information".to_string(),
-                    )
-                })
+        let user_data = match user_data_resp.get().map(|opv| {
+            opv.map(|v| {
+                serde_wasm_bindgen::from_value::<UserData>(v)
+                    .map_err(|_| "Failed to parse data as the right struct".to_string())
             })
-            .ok_or("No user data returned".to_string())
-        {
-            Ok(Ok(Ok(mut us))) => {
+            .map_err(|e| {
+                e.as_string().unwrap_or(
+                    "An error happened, but we can't provide more information".to_string(),
+                )
+            })
+        }) {
+            Some(Ok(Ok(mut us))) => {
                 us.loading_state = LoadingState::Completed;
                 us
             }
+            None => return,
             // on error case, maybe do a user_data_resp.refetch() ?
-            Ok(Err(e)) | Ok(Ok(Err(e))) | Err(e) => UserData {
+            Some(Err(e)) | Some(Ok(Err(e))) => UserData {
                 loading_state: LoadingState::Error(e),
                 ..Default::default()
             },
         };
 
-        *user_state.write() = user_data;
+        user_state.set(user_data);
     });
 
     /* Alert system */

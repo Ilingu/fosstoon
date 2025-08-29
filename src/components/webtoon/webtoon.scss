@@ -1,0 +1,80 @@
+.webtoon {
+  padding-bottom: 5px;
+  border-radius: 10px;
+  height: 300px;
+  // max-width: calc(100vw / 2);
+
+  background-color: #222;
+
+  .thumbnail {
+    height: 70%;
+    width: 100%;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    img {
+      // margin: 0 10px;
+      border-radius: 10px;
+
+      height: 92%;
+      width: 95%;
+    }
+  }
+
+  .title,
+  .type,
+  .author {
+    height: 10%;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+
+    span {
+      overflow: hidden;
+
+      margin: 0 10px;
+
+      height: 80%;
+      width: 100%;
+      border-radius: 10px;
+    }
+  }
+}
+
+.webtoon.standalone {
+  .thumbnail {
+    span {
+      margin: 0 10px;
+      border-radius: 10px;
+
+      height: 92%;
+      width: 100%;
+      background: linear-gradient(90deg, rgb(185, 185, 185), gray);
+      animation: standalone_scanner 3s ease-in-out infinite;
+      background-size: 300% 100%;
+    }
+  }
+  .title,
+  .type,
+  .author {
+    span {
+      background: linear-gradient(90deg, rgb(185, 185, 185), gray);
+      animation: standalone_scanner 3s ease-in-out infinite;
+      background-size: 300% 100%;
+    }
+  }
+}
+
+@keyframes standalone_scanner {
+  0%,
+  100% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 0% 50%;
+  }
+}
