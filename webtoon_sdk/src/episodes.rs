@@ -1,4 +1,4 @@
-use scraper::{Html, Selector};
+use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 
 use crate::{WebtoonId, WtType};
@@ -15,13 +15,86 @@ pub struct EpisodePreview {
     pub ep_url: String,
 }
 
-pub async fn scrap_episodes_info(id: WebtoonId) -> Result<Vec<EpisodePreview>, String> {
+impl EpisodePreview {
+    fn from_html_element(parent_id: WebtoonId, element: &ElementRef<'_>) -> Result<Self, String> {
+        let ep_url_selector = Selector::parse("a").unwrap();
+        let date_selector = Selector::parse(".date").unwrap();
+        let title_selector = Selector::parse(".subj > span").unwrap();
+        let thumb_selector = Selector::parse(".thmb > img").unwrap();
+        let likes_selector = Selector::parse(".like_area").unwrap();
+
+        let ep_num = element
+            .attr("data-episode-no")
+            .ok_or("No episode number found")?
+            .parse::<usize>()
+            .map_err(|e| e.to_string())?;
+
+        let date = element
+            .select(&date_selector)
+            .next()
+            .ok_or("No date")?
+            .text()
+            .collect::<String>()
+            .trim()
+            .to_string();
+        let title = element
+            .select(&title_selector)
+            .next()
+            .ok_or("No title")?
+            .text()
+            .collect::<String>()
+            .trim_end_matches("UP")
+            .to_string();
+        let thumbnail = element
+            .select(&thumb_selector)
+            .next()
+            .ok_or("No thumbnail")?
+            .attr("src")
+            .ok_or("No ep thumb src")?
+            .to_string();
+        let likes = element
+            .select(&likes_selector)
+            .next()
+            .ok_or("No likes")?
+            .text()
+            .collect::<String>()
+            .trim_start_matches("like")
+            .replace(",", "")
+            .parse::<usize>()
+            .map_err(|e| e.to_string())?;
+        let ep_url = element
+            .select(&ep_url_selector)
+            .next()
+            .ok_or("No ep url")?
+            .attr("href")
+            .ok_or("No ep url href")?
+            .to_string();
+
+        Ok(EpisodePreview {
+            parent_wt_id: parent_id,
+            number: ep_num,
+            title,
+            thumbnail,
+            likes,
+            posted_at: date,
+            ep_url,
+        })
+    }
+}
+
+/* Functions */
+
+pub enum ScrapEdgeCase {
+    Inclusive,
+    Exclusive,
+}
+
+async fn scrap_episodes_info_until(
+    id: WebtoonId,
+    until_ep_id: usize,
+    edge_case: ScrapEdgeCase,
+) -> Result<Vec<EpisodePreview>, String> {
     let ep_selector = Selector::parse("#_listUl > li").unwrap();
-    let ep_url_selector = Selector::parse("a").unwrap();
-    let date_selector = Selector::parse(".date").unwrap();
-    let title_selector = Selector::parse(".subj > span").unwrap();
-    let thumb_selector = Selector::parse(".thmb > img").unwrap();
-    let likes_selector = Selector::parse(".like_area").unwrap();
 
     let mut episodes = vec![];
     let mut real_url = None;
@@ -50,72 +123,55 @@ pub async fn scrap_episodes_info(id: WebtoonId) -> Result<Vec<EpisodePreview>, S
         let raw_html = resp.text().await.map_err(|e| e.to_string())?;
         let document = Html::parse_document(&raw_html);
 
+        let mut last_ep_id = None;
         for element in document.select(&ep_selector) {
-            let ep_num = element
-                .attr("data-episode-no")
-                .ok_or("No episode number found")?
-                .parse::<usize>()
-                .map_err(|e| e.to_string())?;
+            let ep = EpisodePreview::from_html_element(id, &element)?;
+            let ep_num = ep.number;
 
-            let date = element
-                .select(&date_selector)
-                .next()
-                .ok_or("No date")?
-                .text()
-                .collect::<String>()
-                .trim()
-                .to_string();
-            let title = element
-                .select(&title_selector)
-                .next()
-                .ok_or("No title")?
-                .text()
-                .collect::<String>()
-                .trim_end_matches("UP")
-                .to_string();
-            let thumbnail = element
-                .select(&thumb_selector)
-                .next()
-                .ok_or("No thumbnail")?
-                .attr("src")
-                .ok_or("No ep thumb src")?
-                .to_string();
-            let likes = element
-                .select(&likes_selector)
-                .next()
-                .ok_or("No likes")?
-                .text()
-                .collect::<String>()
-                .trim_start_matches("like")
-                .replace(",", "")
-                .parse::<usize>()
-                .map_err(|e| e.to_string())?;
-            let ep_url = element
-                .select(&ep_url_selector)
-                .next()
-                .ok_or("No ep url")?
-                .attr("href")
-                .ok_or("No ep url href")?
-                .to_string();
+            match edge_case {
+                ScrapEdgeCase::Inclusive => {
+                    episodes.push(ep);
+                    if ep_num <= until_ep_id {
+                        break 'outer;
+                    }
+                }
+                ScrapEdgeCase::Exclusive => {
+                    if ep_num <= until_ep_id {
+                        break 'outer;
+                    }
+                    episodes.push(ep);
+                }
+            }
 
-            episodes.push(EpisodePreview {
-                parent_wt_id: id,
-                number: ep_num,
-                title,
-                thumbnail,
-                likes,
-                posted_at: date,
-                ep_url,
-            });
-
-            if ep_num == 1 {
+            // anti-infinite loop
+            if let Some(l) = last_ep_id
+                && l == ep_num
+            {
                 break 'outer;
             }
+            last_ep_id = Some(ep_num);
         }
     }
 
     episodes.reverse();
     Ok(episodes)
+}
+
+/// checks for new released episodes in the webtoon described by its `id` since the last episode **number** stored in the
+/// app storage
+///
+/// Therefore `last_stored_ep` start at `1` and not at `0` - becarful
+///
+/// It returns the potential missing episodes info (so if it returns an empty Vec there are no missing ep)
+pub async fn check_for_new_eps(
+    id: WebtoonId,
+    last_stored_ep: usize,
+) -> Result<Vec<EpisodePreview>, String> {
+    scrap_episodes_info_until(id, last_stored_ep, ScrapEdgeCase::Exclusive).await
+}
+
+pub async fn scrap_episodes_info(id: WebtoonId) -> Result<Vec<EpisodePreview>, String> {
+    scrap_episodes_info_until(id, 1, ScrapEdgeCase::Inclusive).await
 }
 
 #[derive(Debug, Serialize, Deserialize)]

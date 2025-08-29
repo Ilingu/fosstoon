@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use futures::StreamExt;
 use tauri::Manager;
@@ -6,7 +6,7 @@ use tauri_plugin_http::reqwest;
 use tokio::fs;
 
 pub async fn download_images(
-    cache_dir: PathBuf,
+    cache_dir: &Path,
     images_url: Vec<String>,
 ) -> Result<Vec<String>, String> {
     // create images disk path
@@ -108,5 +108,5 @@ pub async fn fetch_wt_imgs(
         false => app.path().app_local_data_dir(),
     }
     .map_err(|e| e.to_string())?;
-    download_images(cache_dir, images_url).await
+    download_images(&cache_dir, images_url).await
 }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use webtoon::platform::webtoons::Language;
@@ -16,22 +16,17 @@ pub struct UserWebtoon {
     pub id: WebtoonId,
     pub title: String,
     pub thumbnail: Option<String>,
-    pub last_seen: Option<usize>,
+    pub creator: Option<String>,
+    pub last_ep_num_seen: Option<usize>,
     pub episode_seen: HashMap<usize, bool>,
 }
 
 pub type UserWebtoons = HashMap<u32, UserWebtoon>;
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct UserData {
     pub language: Language,
     pub webtoons: UserWebtoons,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct WebtoonToStore {
-    pub webtoon: WebtoonInfo,
-    pub expire_at: usize,
 }
 
 /* IMPLEMENTATION */
@@ -42,6 +37,7 @@ impl From<WebtoonInfo> for UserWebtoon {
             id,
             title,
             thumbnail,
+            creators,
             ..
         }: WebtoonInfo,
     ) -> Self {
@@ -49,7 +45,8 @@ impl From<WebtoonInfo> for UserWebtoon {
             id,
             title,
             thumbnail,
-            last_seen: None,
+            creator: creators.first().cloned(),
+            last_ep_num_seen: None,
             episode_seen: HashMap::default(),
         }
     }
@@ -62,6 +59,14 @@ impl UserData {
 }
 
 /* COMMANDS */
+
+#[tauri::command]
+pub async fn get_user_data(
+    user_state: tauri::State<'_, Mutex<UserData>>,
+) -> Result<UserData, String> {
+    let user_data = user_state.lock().await;
+    Ok(user_data.deref().clone())
+}
 
 // RULE: backend side has write/read access to the store. While frontend side only has read permission
 #[tauri::command]
@@ -86,15 +91,12 @@ pub async fn change_language(
     Ok(())
 }
 
-/// TODO: if one of the store operation fails, you have to reverts the one before it to prevent merge conflict...
-///
-/// hmmm... logic may be implemented in client-side though
 #[tauri::command]
 pub async fn subscribe_to_webtoon(
     user_state: tauri::State<'_, Mutex<UserData>>,
     app: tauri::AppHandle,
     webtoon_id: WebtoonId,
-) -> Result<WebtoonInfo, String> {
+) -> Result<(), String> {
     // load ressources
     let user_store = app
         .store(USER_STORE)
@@ -104,9 +106,13 @@ pub async fn subscribe_to_webtoon(
         .map_err(|_| "Failed to open wt store")?;
     let mut user_data = user_state.lock().await;
 
-    // fetch webtoon data
-    let mut webtoon2sub = WebtoonInfo::new_from_id(webtoon_id).await?;
-    webtoon2sub.fetch_episodes().await?;
+    // get webtoon data from storage
+    let webtoon2sub = serde_json::from_value::<WebtoonInfo>(
+        webtoons_store
+            .get(webtoon_id.wt_id.to_string())
+            .ok_or("No webtoons info found in storage")?,
+    )
+    .map_err(|e| e.to_string())?;
 
     // update user_state, user_store and webtoon_store accordingly
     user_data
@@ -117,17 +123,10 @@ pub async fn subscribe_to_webtoon(
         serde_json::to_value(&user_data.webtoons)
             .map_err(|_| "Couldn't serialize user new webtoons")?,
     );
-    webtoons_store.set(
-        webtoon_id.wt_id.to_string(),
-        serde_json::to_value(&webtoon2sub).map_err(|_| "Couldn't serialize webtoon2sub")?,
-    );
 
-    Ok(webtoon2sub)
+    Ok(())
 }
 
-/// TODO: if one of the store operation fails, you have to reverts the one before it to prevent merge conflict...
-///
-/// hmmm... logic may be implemented in client-side though
 #[tauri::command]
 pub async fn unsubscribe_from_webtoon(
     user_state: tauri::State<'_, Mutex<UserData>>,

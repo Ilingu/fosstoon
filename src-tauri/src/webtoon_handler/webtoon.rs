@@ -1,12 +1,19 @@
+use std::{
+    path::Path,
+    time::{Duration, SystemTime},
+};
+
 use nanorand::{Rng, WyRand};
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
+use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use webtoon::platform::webtoons::{
     self, canvas, meta::Genre, originals::Schedule, Language, Type, Webtoon,
 };
 use webtoon_sdk::{episodes::EpisodePreview, WebtoonId as SDKWtId};
 
-use crate::store::UserData;
+use crate::{constants::WEBTOONS_STORE, image_handler::download_images, store::UserData};
 
 /* Type Definition */
 #[derive(Serialize, Clone, Copy, Deserialize, Debug)]
@@ -33,6 +40,9 @@ pub struct WebtoonInfo {
     pub summary: String,
 
     pub episodes: Option<Vec<EpisodePreview>>,
+    pub refresh_eps_at: SystemTime,
+
+    pub expired_at: SystemTime,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -93,13 +103,40 @@ impl WebtoonInfo {
     }
 
     /// **DOES NOT INCLUDE COMMENTS**
-    pub async fn fetch_episodes(&mut self) -> Result<(), String> {
-        self.update_episodes().await
+    pub async fn fetch_episodes(&mut self, thumbnail_path: &Path) -> Result<(), String> {
+        self.episodes = Some(webtoon_sdk::episodes::scrap_episodes_info(self.id.into()).await?);
+        self.download_episodes_thumbnail(thumbnail_path).await?;
+
+        Ok(())
     }
 
     /// **DOES NOT INCLUDE COMMENTS**
-    pub async fn update_episodes(&mut self) -> Result<(), String> {
-        self.episodes = Some(webtoon_sdk::episodes::scrap_episodes_info(self.id.into()).await?);
+    pub async fn update_episodes(&mut self, thumbnail_path: &Path) -> Result<(), String> {
+        if let Some(episodes) = self.episodes.as_mut() {
+            let mut new_ep_since_last =
+                webtoon_sdk::episodes::check_for_new_eps(self.id.into(), episodes.len()).await?;
+            episodes.append(&mut new_ep_since_last);
+            self.download_episodes_thumbnail(thumbnail_path).await?
+        }
+
+        Ok(())
+    }
+
+    /// locally downaload eps thumbnail and set the disk path as the new eps thumb url
+    pub async fn download_episodes_thumbnail(
+        &mut self,
+        thumbnail_path: &Path,
+    ) -> Result<(), String> {
+        if let Some(eps) = self.episodes.as_mut() {
+            let new_thumbnails_url = download_images(
+                thumbnail_path,
+                eps.iter().map(|e| e.thumbnail.clone()).collect(),
+            )
+            .await?;
+            for (e, new_thumb_url) in eps.iter_mut().zip(new_thumbnails_url) {
+                e.thumbnail = new_thumb_url
+            }
+        }
         Ok(())
     }
 
@@ -137,6 +174,13 @@ impl WebtoonInfo {
             summary: webtoon.summary().await.map_err(|err| err.to_string())?,
 
             episodes: None,
+            refresh_eps_at: SystemTime::now()
+                .checked_add(Duration::from_secs(86400)) // add 1 days before refresh
+                .ok_or("are we near 2038?")?,
+
+            expired_at: SystemTime::now()
+                .checked_add(Duration::from_secs(864000)) // add 10 days before refresh
+                .ok_or("are we near 2038?")?,
         })
     }
 }
@@ -171,10 +215,56 @@ pub async fn search_webtoon(
 }
 
 #[tauri::command]
-pub async fn get_webtoon_info(id: WebtoonId) -> Result<WebtoonInfo, String> {
-    let mut webtoon = WebtoonInfo::new_from_id(id).await?;
-    webtoon.fetch_episodes().await?;
-    Ok(webtoon)
+pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<WebtoonInfo, String> {
+    let webtoons_store = app
+        .store(WEBTOONS_STORE)
+        .map_err(|_| "Failed to open wt store")?;
+
+    // check if already cached and not expired
+    let webtoon_info = match webtoons_store
+        .get(id.wt_id.to_string())
+        .map(serde_json::from_value::<WebtoonInfo>)
+    {
+        Some(Ok(wt))
+            if wt.expired_at < SystemTime::now() && wt.refresh_eps_at < SystemTime::now() =>
+        {
+            return Ok(wt); // no need to re-write the same value to the store
+        }
+        Some(Ok(mut wt)) if wt.expired_at >= SystemTime::now() => {
+            // refresh expired webtoon
+            wt.refresh().await?;
+            wt
+        }
+        Some(Ok(mut wt)) if wt.refresh_eps_at >= SystemTime::now() => {
+            // get missing eps
+            wt.update_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
+                .await?;
+            wt
+        }
+        Some(Ok(mut wt)) => {
+            // refresh expired webtoon
+            wt.refresh().await?;
+            // get missing eps
+            wt.update_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
+                .await?;
+            wt
+        }
+        Some(Err(_)) | None => {
+            // if not existing or type migration, fetch data
+            let mut webtoon = WebtoonInfo::new_from_id(id).await?;
+            webtoon
+                .fetch_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
+                .await?;
+            webtoon
+        }
+    };
+
+    // set updated/new webtoon to storage
+    webtoons_store.set(
+        id.wt_id.to_string(),
+        serde_json::to_value(&webtoon_info).map_err(|_| "Couldn't serialize webtoon_info")?,
+    );
+    Ok(webtoon_info)
 }
 
 #[tauri::command]
@@ -185,12 +275,10 @@ pub async fn get_homepage_recommandations(
     let user_langage = user_state.lock().await.language;
 
     let wt_client = webtoons::Client::new();
-
     let originals = wt_client
         .originals(user_langage)
         .await
         .map_err(|err| err.to_string())?;
-
     let canvas = wt_client
         .canvas(user_langage, 1..=2, canvas::Sort::Popularity)
         .await

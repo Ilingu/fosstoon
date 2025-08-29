@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+use tauri_plugin_store::StoreExt;
 use webtoon::platform::webtoons::{self};
 use webtoon_sdk::episodes::{EpisodeData, EpisodePreview};
 
 use crate::{
-    image_handler::{download_images, fetch_wt_imgs},
-    webtoon_handler::webtoon::WebtoonId,
+    constants::WEBTOONS_STORE,
+    image_handler::download_images,
+    webtoon_handler::webtoon::{WebtoonId, WebtoonInfo},
 };
 
 /// for the app simplicity sake, no replies will be fetch in this app
@@ -72,6 +74,35 @@ pub async fn get_episode_post(id: WebtoonId, ep_num: usize) -> Result<Vec<Post>,
 }
 
 #[tauri::command]
+pub async fn force_refresh_episodes(
+    app: tauri::AppHandle,
+    id: WebtoonId,
+) -> Result<WebtoonInfo, String> {
+    let webtoons_store = app
+        .store(WEBTOONS_STORE)
+        .map_err(|_| "Failed to open wt store")?;
+
+    let updated_wt = match webtoons_store
+        .get(id.wt_id.to_string())
+        .map(serde_json::from_value::<WebtoonInfo>)
+    {
+        Some(Ok(mut wt)) => {
+            wt.update_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
+                .await?;
+            wt
+        }
+        Some(Err(_)) | None => return Err("webtoon not found".to_string()),
+    };
+
+    // set updated webtoon to storage
+    webtoons_store.set(
+        id.wt_id.to_string(),
+        serde_json::to_value(&updated_wt).map_err(|_| "Couldn't serialize updated_wt")?,
+    );
+    Ok(updated_wt)
+}
+
+#[tauri::command]
 pub async fn get_episode_data(
     app: tauri::AppHandle,
     ep: EpisodePreview,
@@ -80,7 +111,7 @@ pub async fn get_episode_data(
 
     // episodes panels are stored temporarily in cache
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
-    let local_path = download_images(cache_dir, ep_data.panels).await?;
+    let local_path = download_images(&cache_dir, ep_data.panels).await?;
     ep_data.panels = local_path;
     Ok(ep_data)
 }
