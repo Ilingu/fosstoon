@@ -12,11 +12,13 @@ use reactive_stores::Store;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::components::webtoon::{GhostWebtoon, StandaloneWebtoon, Webtoon};
+use crate::components::webtoon::{StandaloneWebtoon, Webtoon};
 use crate::parse_or_toast;
-use crate::utility::convert_file_src;
-use crate::utility::store::{LoadingState, UserData, UserDataStoreFields, UserWebtoon};
-use crate::utility::types::{Alert, AlertLevel, WebtoonSearchInfo};
+use crate::utility::store::{
+    LoadingState, UserData, UserDataStoreFields, UserRecommendations,
+    UserRecommendationsStoreFields, UserWebtoon,
+};
+use crate::utility::types::{Alert, AlertLevel, WebtoonId, WebtoonInfo, WebtoonSearchInfo, WtType};
 
 #[wasm_bindgen]
 extern "C" {
@@ -30,12 +32,11 @@ struct SearchWtArgs<'a> {
 }
 
 #[derive(Serialize, Deserialize)]
-struct FetchWtImgArgs {
-    images_url: Vec<String>,
-    temporary_cache: bool,
+struct FetchWtInfoArgs {
+    id: WebtoonId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum AppMode {
     My,
     Recommandation,
@@ -58,9 +59,23 @@ impl Display for AppMode {
 
 #[component]
 pub fn Home() -> impl IntoView {
+    /* Global state */
     let user_state = expect_context::<Store<UserData>>();
+    let user_rec_state = expect_context::<Store<UserRecommendations>>();
     let push_toast =
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
+
+    let user_webtoons = Memo::new(move |_| {
+        let mut uwt = user_state
+            .webtoons()
+            .get()
+            .into_values()
+            .collect::<Vec<UserWebtoon>>();
+        uwt.sort_by_key(|uwt| uwt.last_seen);
+        uwt.into_iter()
+            .map(|uwt| uwt.into())
+            .collect::<Vec<WebtoonSearchInfo>>()
+    });
 
     /* states */
     let (webtoons, set_webtoons) = signal::<Vec<WebtoonSearchInfo>>(vec![]);
@@ -68,14 +83,19 @@ pub fn Home() -> impl IntoView {
 
     /* handlers */
     let load_user_wt = move || {
-        if user_state.loading_state().get_untracked() == LoadingState::Completed {
-            let mut user_webtoons = user_state
-                .webtoons()
-                .get_untracked()
-                .into_values()
-                .collect::<Vec<UserWebtoon>>();
-            user_webtoons.sort_by_key(|uwt| uwt.last_seen);
-            *set_webtoons.write() = user_webtoons.into_iter().map(|uwt| uwt.into()).collect();
+        if user_state.loading_state().get_untracked() == LoadingState::Completed
+            && app_mode.get_untracked() == AppMode::My
+        {
+            set_webtoons.set(user_webtoons.get_untracked());
+        }
+    };
+
+    let load_user_rec = move || {
+        if user_rec_state.loading_state().get_untracked() == LoadingState::Completed
+            && app_mode.get_untracked() == AppMode::Recommandation
+        {
+            let recommendations = user_rec_state.webtoons().get_untracked();
+            set_webtoons.set(recommendations);
         }
     };
 
@@ -89,7 +109,7 @@ pub fn Home() -> impl IntoView {
                 let args = serde_wasm_bindgen::to_value(&SearchWtArgs { query: &query }).unwrap();
 
                 push_toast.run(Alert::new(
-                    "Searching...".to_string(),
+                    "Searching...",
                     AlertLevel::Info,
                     Some(Duration::from_millis(400)),
                 ));
@@ -98,32 +118,28 @@ pub fn Home() -> impl IntoView {
                     Ty = Vec<WebtoonSearchInfo>,
                     push_toast
                 );
-                console_log(&format!("{webtoons:?}"));
+                // console_log(&format!("{webtoons:?}"));
                 set_webtoons.set(webtoons);
             });
         }
     };
-    let toggle_mode = move |_| match app_mode.get_untracked() {
-        AppMode::My => set_app_mode.set(AppMode::Recommandation),
-        AppMode::Recommandation => set_app_mode.set(AppMode::My),
-        _ => {}
-    };
 
     /*
-    let ft_wt_img = move || {
+    let fetch_wt_info = move |_| {
         spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&FetchWtImgArgs {
-                images_url: vec!["https://webtoon-phinf.pstatic.net/20250523_200/1748006227221ouWw5_JPEG/79690b17-1126-479b-bcb6-6bc5173b827c16195659268984580451.jpg?type=f160_151".to_string(), "https://webtoon-phinf.pstatic.net/20250715_138/1752541364726EKldt_JPEG/17525413646832751_S2ChasersEp13-05_003.jpg?type=q90".to_string()],
-                temporary_cache: true,
-            })
-            .unwrap();
-
-            let imgs_path = parse_or_toast!(
-                invoke("fetch_wt_imgs", args).await,
-                Ty = Vec<String>,
+            let wt_info = parse_or_toast!(
+                invoke(
+                    "get_webtoon_info",
+                    serde_wasm_bindgen::to_value(&FetchWtInfoArgs {
+                        id: WebtoonId::new(656579, WtType::Canvas)
+                    })
+                    .unwrap()
+                )
+                .await,
+                Ty = WebtoonInfo,
                 push_toast
             );
-            console_log(&format!("{imgs_path:?}"));
+            console_log(&format!("{wt_info:?}"));
         });
     };
     */
@@ -134,7 +150,24 @@ pub fn Home() -> impl IntoView {
         LoadingState::Completed => load_user_wt(),
         LoadingState::Error(e) => {
             set_app_mode.set(AppMode::Recommandation);
-            push_toast.run(Alert::new(e, AlertLevel::Error, None));
+            push_toast.run(Alert::new(&e, AlertLevel::Error, None));
+        }
+    });
+
+    Effect::new(move |_| match user_rec_state.loading_state().get() {
+        LoadingState::Loading => (),
+        LoadingState::Completed => {
+            push_toast.run(Alert::new(
+                "Recommendations loaded",
+                AlertLevel::Info,
+                Some(Duration::from_millis(300)),
+            ));
+            if let AppMode::Recommandation = app_mode.get_untracked() {
+                load_user_rec();
+            }
+        }
+        LoadingState::Error(e) => {
+            push_toast.run(Alert::new(&e, AlertLevel::Error, None));
         }
     });
 
@@ -147,6 +180,7 @@ pub fn Home() -> impl IntoView {
         }
         AppMode::Recommandation => {
             before_search_app_mode.set_value(AppMode::Recommandation);
+            load_user_rec();
         }
         AppMode::Search(q) => {
             // search one second after the user stopped typping
@@ -171,7 +205,11 @@ pub fn Home() -> impl IntoView {
         <Style>{include_str!("home.css")}</Style>
         <main class="container">
             <div id="search">
-                <img src="public/logo.png" class="logo" alt="Fosstoon logo" />
+                <img
+                    src="public/logo.png"
+                    class="logo"
+                    alt="Fosstoon logo"
+                />
                 <div class="search_input">
                     <input
                         type="text"
@@ -203,7 +241,13 @@ pub fn Home() -> impl IntoView {
             </div>
             <div id="webtoons">
                 <Show
-                    when=move || { !webtoons.get().is_empty() }
+                    when=move || {
+                        !webtoons.get().is_empty()
+                            || (app_mode.get() == AppMode::My
+                                && user_state.loading_state().get() == LoadingState::Completed)
+                            || (app_mode.get() == AppMode::Recommandation
+                                && user_rec_state.loading_state().get() == LoadingState::Completed)
+                    }
                     fallback=|| {
                         view! {
                             {(1..=10)
@@ -214,18 +258,26 @@ pub fn Home() -> impl IntoView {
                         }
                     }
                 >
-                    <For
-                        each=move || webtoons.get()
-                        key=|wt| wt.id.wt_id
-                        let(wt: WebtoonSearchInfo)
+                    <Show
+                        when=move || { !webtoons.get().is_empty() }
+                        fallback=|| {
+                            view! { <p>"Nothing to show!"</p> }
+                        }
                     >
-                        <Webtoon wt_info=wt.clone() />
-                    </For>
+                        <For
+                            each=move || webtoons.get()
+                            key=|wt| wt.id.wt_id
+                            let(wt: WebtoonSearchInfo)
+                        >
+                            <Webtoon wt_info=wt.clone() is_local=app_mode.get() == AppMode::Recommandation />
+                        </For>
+                    </Show>
+
                 </Show>
             </div>
             <nav>
                 <button
-                    on:click=toggle_mode
+                    on:click=move |_| set_app_mode.set(AppMode::My)
                     class=move || {
                         format!(
                             "btn {}",
@@ -240,7 +292,7 @@ pub fn Home() -> impl IntoView {
                     "My"
                 </button>
                 <button
-                    on:click=toggle_mode
+                    on:click=move |_| set_app_mode.set(AppMode::Recommandation)
                     class=move || {
                         format!(
                             "btn {}",

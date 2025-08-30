@@ -1,7 +1,7 @@
-use leptos::{leptos_dom::logging::console_log, prelude::*};
+use leptos::prelude::*;
 use leptos_meta::Style;
 
-use crate::utility::types::WebtoonSearchInfo;
+use crate::utility::{convert_file_src, types::WebtoonSearchInfo};
 
 #[component]
 pub fn Webtoon(
@@ -11,12 +11,13 @@ pub fn Webtoon(
         creator,
         id,
     }: WebtoonSearchInfo,
+    is_local: bool,
 ) -> impl IntoView {
     view! {
         <Style>{include_str!("webtoon.css")}</Style>
         <div class="webtoon">
             <div class="thumbnail">
-                <img src=thumbnail alt="Webtoon poster" />
+                <img src=move || if is_local { convert_file_src(&thumbnail) } else { thumbnail.clone() } alt="Webtoon poster" />
             </div>
             <div class="title">
                 <span>{title}</span>
@@ -49,13 +50,5 @@ pub fn StandaloneWebtoon() -> impl IntoView {
                 <span></span>
             </div>
         </div>
-    }
-}
-
-#[component]
-pub fn GhostWebtoon() -> impl IntoView {
-    view! {
-        <Style>{include_str!("webtoon.css")}</Style>
-        <div class="webtoon ghost"></div>
     }
 }

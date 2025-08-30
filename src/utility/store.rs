@@ -16,7 +16,7 @@ pub struct UserWebtoon {
     pub episode_seen: HashMap<usize, bool>,
 }
 
-pub type UserWebtoons = HashMap<u32, UserWebtoon>;
+pub type UserWebtoons = HashMap<usize, UserWebtoon>;
 
 impl From<UserWebtoon> for WebtoonSearchInfo {
     fn from(
@@ -32,7 +32,7 @@ impl From<UserWebtoon> for WebtoonSearchInfo {
             id,
             title,
             thumbnail: thumbnail.unwrap_or_default(),
-            creator: creator.unwrap_or_default(),
+            creator,
         }
     }
 }
@@ -49,6 +49,14 @@ pub enum LoadingState {
 pub struct UserData {
     pub language: Language,
     pub webtoons: UserWebtoons,
+
+    #[serde(default)]
+    pub loading_state: LoadingState,
+}
+
+#[derive(Clone, Debug, Default, Store, Deserialize)]
+pub struct UserRecommendations {
+    pub webtoons: Vec<WebtoonSearchInfo>,
 
     #[serde(default)]
     pub loading_state: LoadingState,

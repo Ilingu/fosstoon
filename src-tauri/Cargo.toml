@@ -24,9 +24,6 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
-tauri-plugin-log = "2"
-
-log = "0.4"
 
 # Parser
 serde = { version = "1", features = ["derive"] }
@@ -38,6 +35,6 @@ futures = "0.3.31"
 
 # App's crate
 webtoon = "0.9.0"
-nanorand = "0.8.0"
 webtoon_sdk = {path = "../webtoon_sdk"}
-tauri-plugin-http = "2"
+async-trait = "0.1.89"
+nanorand = "0.8.0"

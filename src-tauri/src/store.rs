@@ -3,11 +3,9 @@ use std::{collections::HashMap, ops::Deref};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use webtoon::platform::webtoons::Language;
+use webtoon_sdk::{webtoon::WebtoonInfo, WebtoonId};
 
-use crate::{
-    constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY, WEBTOONS_STORE},
-    webtoon_handler::webtoon::{WebtoonId, WebtoonInfo},
-};
+use crate::constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY, WEBTOONS_STORE};
 
 /* TYPE DEF */
 
@@ -15,13 +13,13 @@ use crate::{
 pub struct UserWebtoon {
     pub id: WebtoonId,
     pub title: String,
-    pub thumbnail: Option<String>,
-    pub creator: Option<String>,
+    pub thumbnail: String,
+    pub creator: String,
     pub last_ep_num_seen: Option<usize>,
     pub episode_seen: HashMap<usize, bool>,
 }
 
-pub type UserWebtoons = HashMap<u32, UserWebtoon>;
+pub type UserWebtoons = HashMap<usize, UserWebtoon>;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct UserData {
@@ -45,7 +43,7 @@ impl From<WebtoonInfo> for UserWebtoon {
             id,
             title,
             thumbnail,
-            creator: creators.first().cloned(),
+            creator: creators.first().cloned().unwrap_or_default(),
             last_ep_num_seen: None,
             episode_seen: HashMap::default(),
         }

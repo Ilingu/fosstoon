@@ -25,10 +25,10 @@ pub struct Alert {
 }
 
 impl Alert {
-    pub fn new(msg: String, level: AlertLevel, duration: Option<Duration>) -> Self {
+    pub fn new(msg: &str, level: AlertLevel, duration: Option<Duration>) -> Self {
         Self {
             id: 0,
-            msg,
+            msg: msg.to_string(),
             level,
             duration: duration.unwrap_or(Duration::from_secs(3)),
         }
@@ -38,30 +38,36 @@ impl Alert {
 /* BACKEND TYPES */
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Type {
+pub enum WtType {
     /// An Original webtoon.
     Original,
     /// A Canvas webtoon.
     Canvas,
 }
 
-impl Display for Type {
+impl Display for WtType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Type::Original => "Originals",
-                Type::Canvas => "Canvas",
+                WtType::Original => "Originals",
+                WtType::Canvas => "Canvas",
             }
         )
     }
 }
 
-#[derive(Serialize, Clone, Copy, Deserialize, Debug)]
+#[derive(Serialize, Clone, Copy, Deserialize, Debug, PartialEq)]
 pub struct WebtoonId {
-    pub wt_id: u32,
-    pub wt_type: Type,
+    pub wt_id: usize,
+    pub wt_type: WtType,
+}
+
+impl WebtoonId {
+    pub fn new(id: usize, wt_type: WtType) -> Self {
+        Self { wt_id: id, wt_type }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,7 +75,13 @@ pub struct WebtoonSearchInfo {
     pub id: WebtoonId,
     pub title: String,
     pub thumbnail: String,
-    pub creator: String,
+    pub creator: Option<String>,
+}
+
+impl PartialEq for WebtoonSearchInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 /// Represents the languages that `webtoons.com` has.
@@ -99,16 +111,13 @@ pub struct WebtoonInfo {
     pub id: WebtoonId,
 
     pub title: String,
-    pub thumbnail: Option<String>,
-    pub language: Language,
+    pub thumbnail: String,
     pub banner: Option<String>,
     pub creators: Vec<String>,
     pub genres: Vec<Genre>,
     pub schedule: Option<Schedule>,
-    pub is_completed: bool,
-    pub views: u64,
-    pub likes: u32,
-    pub subs: u32,
+    pub views: String,
+    pub subs: String,
     pub summary: String,
 
     pub episodes: Option<Vec<EpisodePreview>>,
@@ -158,8 +167,7 @@ pub enum Weekday {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq, Hash)]
 pub enum Genre {
     Comedy,
     Fantasy,
@@ -200,4 +208,6 @@ pub enum Genre {
     Shonen,
     WebNovel,
     GraphicNovel,
+
+    Other(String),
 }

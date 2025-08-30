@@ -2,8 +2,8 @@ use crate::{
     components::alert::Alert,
     routes::home::Home,
     utility::{
-        store::{LoadingState, UserData},
-        types::Alert,
+        store::{LoadingState, UserData, UserRecommendations},
+        types::{Alert, WebtoonSearchInfo},
     },
 };
 
@@ -28,8 +28,16 @@ pub fn App() -> impl IntoView {
     let user_state = Store::new(UserData::default());
     provide_context(user_state);
 
+    let user_rec_state = Store::new(UserRecommendations::default());
+    provide_context(user_rec_state);
+
+    // fetch ressources
     let user_data_resp = LocalResource::new(move || invoke_without_args("get_user_data"));
 
+    let recommendations_resp =
+        LocalResource::new(move || invoke_without_args("get_homepage_recommandations"));
+
+    // load ressources
     Effect::new(move |_| {
         let user_data = match user_data_resp.get().map(|opv| {
             opv.map(|v| {
@@ -55,6 +63,34 @@ pub fn App() -> impl IntoView {
         };
 
         user_state.set(user_data);
+    });
+
+    Effect::new(move |_| {
+        let user_rec = match recommendations_resp.get().map(|opv| {
+            opv.map(|v| {
+                serde_wasm_bindgen::from_value::<Vec<WebtoonSearchInfo>>(v)
+                    .map_err(|_| "Failed to parse data as the right struct".to_string())
+            })
+            .map_err(|e| {
+                e.as_string().unwrap_or(
+                    "An error happened, but we can't provide more information".to_string(),
+                )
+            })
+        }) {
+            Some(Ok(Ok(wt))) => UserRecommendations {
+                webtoons: wt,
+                loading_state: LoadingState::Completed,
+            },
+            None => return,
+            // on error case, maybe do a user_data_resp.refetch() ?
+            Some(Err(e)) | Some(Ok(Err(e))) => UserRecommendations {
+                loading_state: LoadingState::Error(e),
+                ..Default::default()
+            },
+        };
+
+        // console_log(&format!("{user_rec:?}"));
+        user_rec_state.set(user_rec);
     });
 
     /* Alert system */

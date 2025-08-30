@@ -1,7 +1,7 @@
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 
-use crate::{WebtoonId, WtType};
+use crate::{generate_webtoon_url, WebtoonId};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EpisodePreview {
@@ -101,18 +101,7 @@ async fn scrap_episodes_info_until(
     'outer: for page in 1.. {
         let url = match real_url {
             Some(ref rurl) => format!("{rurl}&page={page}"),
-            None => match id.wt_type {
-                WtType::Canvas => format!(
-                    "https://www.webtoons.com/en/canvas/*/list?title_no={}&page={page}",
-                    id.wt_id,
-                ),
-                WtType::Original => {
-                    format!(
-                        "https://www.webtoons.com/en/*/*/list?title_no={}&page={page}",
-                        id.wt_id
-                    )
-                }
-            },
+            None => format!("{}&page={page}", generate_webtoon_url(id)),
         };
 
         let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;

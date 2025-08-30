@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::webtoon_handler::webtoon::WebtoonInfo;
 use webtoon::platform::webtoons::{self, Language};
+use webtoon_sdk::webtoon::WebtoonSearchInfo;
+
+use crate::webtoon_handler::webtoon::FromWebtoon;
 
 #[derive(Serialize, Deserialize)]
 pub struct CreatorInfo {
@@ -10,7 +12,7 @@ pub struct CreatorInfo {
     name: String,
 
     followers: Option<u32>,
-    webtoons: Vec<WebtoonInfo>,
+    webtoons: Vec<WebtoonSearchInfo>,
 }
 
 impl CreatorInfo {
@@ -33,11 +35,11 @@ impl CreatorInfo {
                 .map_err(|err| err.to_string())?
                 .ok_or("Author has no webtoons")?
                 .iter()
-                .map(WebtoonInfo::convert),
+                .map(WebtoonSearchInfo::from_webtoon),
         )
         .await
         .into_iter()
-        .collect::<Result<Vec<WebtoonInfo>, String>>()?;
+        .collect::<Result<Vec<WebtoonSearchInfo>, String>>()?;
 
         Ok(Self {
             profile_id: profile_id.to_string(),

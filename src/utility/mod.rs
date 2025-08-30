@@ -28,12 +28,12 @@ macro_rules! parse_or_toast {
                 )
             }) {
             Ok(Ok(wt)) => wt,
-            Ok(Err(e)) | Err(e) => return $push_toast.run(Alert::new(e, AlertLevel::Error, None)),
+            Ok(Err(e)) | Err(e) => return $push_toast.run(Alert::new(&e, AlertLevel::Error, None)),
         }
     };
 }
 
-const IS_ANDROID: bool = true;
+const IS_ANDROID: bool = false;
 /*
 #[cfg(any(windows, target_os = "android"))]
 let base = ;

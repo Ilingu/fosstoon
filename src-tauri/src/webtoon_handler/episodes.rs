@@ -1,14 +1,17 @@
+use std::time::{Duration, SystemTime};
+
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use webtoon::platform::webtoons::{self};
-use webtoon_sdk::episodes::{EpisodeData, EpisodePreview};
-
-use crate::{
-    constants::WEBTOONS_STORE,
-    image_handler::download_images,
-    webtoon_handler::webtoon::{WebtoonId, WebtoonInfo},
+use webtoon_sdk::{
+    episodes::{EpisodeData, EpisodePreview},
+    image_dl::download_images,
+    webtoon::WebtoonInfo,
+    WebtoonId,
 };
+
+use crate::{constants::WEBTOONS_STORE, webtoon_handler::FromWtType};
 
 /// for the app simplicity sake, no replies will be fetch in this app
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -34,7 +37,7 @@ impl PostExtension for EpisodeData {
         let wtclient = webtoons::Client::new();
 
         let webtoon = wtclient
-            .webtoon(wt_id.wt_id, wt_id.wt_type)
+            .webtoon(wt_id.wt_id as u32, wt_id.wt_type.to_local_type())
             .await
             .map_err(|err| err.to_string())?
             .ok_or("Webtoon not found")?;
@@ -82,7 +85,7 @@ pub async fn force_refresh_episodes(
         .store(WEBTOONS_STORE)
         .map_err(|_| "Failed to open wt store")?;
 
-    let updated_wt = match webtoons_store
+    let mut updated_wt = match webtoons_store
         .get(id.wt_id.to_string())
         .map(serde_json::from_value::<WebtoonInfo>)
     {
@@ -93,6 +96,10 @@ pub async fn force_refresh_episodes(
         }
         Some(Err(_)) | None => return Err("webtoon not found".to_string()),
     };
+
+    updated_wt.refresh_eps_at = SystemTime::now()
+        .checked_add(Duration::from_secs(86400)) // add 1 days before refresh
+        .ok_or("are we near 2038?")?;
 
     // set updated webtoon to storage
     webtoons_store.set(
