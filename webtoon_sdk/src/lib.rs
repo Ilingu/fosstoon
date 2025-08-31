@@ -7,6 +7,15 @@ pub mod webtoon;
 use serde::{Deserialize, Serialize};
 
 /* Type Definition */
+#[derive(Debug, Clone, Serialize)]
+pub enum WtDownloadingInfo {
+    WebtoonData(u8),
+    EpisodeInfo(u8),
+    CachingImages(u8),
+
+    Idle,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WebtoonId {
     pub wt_id: usize,
@@ -151,13 +160,13 @@ impl TryFrom<String> for Schedule {
                     .replace("every ", "")
                     .split(", ")
                     .map(|s| match s {
-                        "mon" => Ok(Weekday::Monday),
-                        "tue" => Ok(Weekday::Tuesday),
-                        "wed" => Ok(Weekday::Wednesday),
-                        "thu" => Ok(Weekday::Thursday),
-                        "fri" => Ok(Weekday::Friday),
-                        "sat" => Ok(Weekday::Saturday),
-                        "sun" => Ok(Weekday::Sunday),
+                        "mon" | "monday" => Ok(Weekday::Monday),
+                        "tue" | "tuesday" => Ok(Weekday::Tuesday),
+                        "wed" | "wednesday" => Ok(Weekday::Wednesday),
+                        "thu" | "thursday" => Ok(Weekday::Thursday),
+                        "fri" | "friday" => Ok(Weekday::Friday),
+                        "sat" | "saturday" => Ok(Weekday::Saturday),
+                        "sun" | "sunday" => Ok(Weekday::Sunday),
                         _ => Err("Failed to parse weekday".to_string()),
                     })
                     .collect::<Result<Vec<_>, String>>()?;

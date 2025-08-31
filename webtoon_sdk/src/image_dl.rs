@@ -1,12 +1,18 @@
 use std::path::Path;
 
-use futures::StreamExt;
+use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::fs;
 
-pub async fn download_images(
+use crate::WtDownloadingInfo;
+
+// todo: reverif que ca marche
+pub async fn download_images<F: Fn(WtDownloadingInfo) + Clone>(
     cache_dir: &Path,
     images_url: Vec<String>,
+    info_cb: F,
 ) -> Result<Vec<String>, String> {
+    info_cb(WtDownloadingInfo::CachingImages(0));
+
     // create images disk path
     let images_path = images_url
         .iter()
@@ -49,26 +55,52 @@ pub async fn download_images(
 
     // fetch image data
     let http_client = reqwest::Client::new();
-    let images_resp = {
-        let futures = images_url_to_cache.iter().map(|iurl| {
-            http_client
-                .get(iurl)
-                .header("Referer", "https://www.webtoons.com/")
-                .send()
+    let raw_images_data = {
+        let futures = images_url_to_cache.iter().enumerate().map(|(i, iurl)| {
+            let value = http_client.clone();
+            async move {
+                let resp = value
+                    .get(iurl)
+                    .header("Referer", "https://www.webtoons.com/")
+                    .send()
+                    .await?;
+
+                Ok::<_, reqwest::Error>((i, resp.bytes().await))
+            }
         });
-        futures::future::join_all(futures)
-            .await
+
+        let requests_num = futures.len();
+        let mut futures_unordered = FuturesUnordered::new();
+        for f in futures {
+            futures_unordered.push(f);
+        }
+
+        let mut responses_num = 0_usize;
+        let mut responses_data = vec![None; requests_num];
+
+        while let Some(result) = futures_unordered.next().await {
+            let (order, bytes_resp) = result
+                .map(|(i, b_resp)| match b_resp {
+                    Ok(b) => Ok((i, b)),
+                    Err(e) => Err(e.to_string()),
+                })
+                .map_err(|e| e.to_string())??;
+
+            responses_num += 1;
+            info_cb(WtDownloadingInfo::CachingImages(
+                (((responses_num as f64) / (requests_num as f64)) * 100.0).round() as u8,
+            ));
+            responses_data[order] = Some(bytes_resp);
+        }
+
+        responses_data
             .into_iter()
+            .map(|resp| resp.ok_or("Missing a response"))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?
     };
 
-    let raw_images_data =
-        futures::future::join_all(images_resp.into_iter().map(|resp| resp.bytes()))
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?;
+    info_cb(WtDownloadingInfo::CachingImages(90));
 
     // write to disk
     futures::future::join_all(
@@ -89,6 +121,8 @@ pub async fn download_images(
     .into_iter()
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| e.to_string())?;
+
+    info_cb(WtDownloadingInfo::CachingImages(100));
 
     // return the path where the image are saved
     Ok(images_path)

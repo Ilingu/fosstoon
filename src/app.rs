@@ -1,6 +1,6 @@
 use crate::{
     components::alert::Alert,
-    routes::home::Home,
+    routes::{home::Home, webtoon::WebtoonPage},
     utility::{
         store::{LoadingState, UserData, UserRecommendations},
         types::{Alert, WebtoonSearchInfo},
@@ -113,6 +113,7 @@ pub fn App() -> impl IntoView {
         <Router>
             <Routes fallback=|| "Not found.">
                 <Route path=path!("/") view=Home />
+                <Route path=path!("/webtoon") view=WebtoonPage />
             </Routes>
 
             <div id="alerts">

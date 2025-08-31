@@ -18,7 +18,7 @@ use crate::utility::store::{
     LoadingState, UserData, UserDataStoreFields, UserRecommendations,
     UserRecommendationsStoreFields, UserWebtoon,
 };
-use crate::utility::types::{Alert, AlertLevel, WebtoonId, WebtoonInfo, WebtoonSearchInfo, WtType};
+use crate::utility::types::{Alert, AlertLevel, WebtoonId, WebtoonSearchInfo};
 
 #[wasm_bindgen]
 extern "C" {
@@ -124,26 +124,6 @@ pub fn Home() -> impl IntoView {
         }
     };
 
-    /*
-    let fetch_wt_info = move |_| {
-        spawn_local(async move {
-            let wt_info = parse_or_toast!(
-                invoke(
-                    "get_webtoon_info",
-                    serde_wasm_bindgen::to_value(&FetchWtInfoArgs {
-                        id: WebtoonId::new(656579, WtType::Canvas)
-                    })
-                    .unwrap()
-                )
-                .await,
-                Ty = WebtoonInfo,
-                push_toast
-            );
-            console_log(&format!("{wt_info:?}"));
-        });
-    };
-    */
-
     /* Effects */
     Effect::new(move |_| match user_state.loading_state().get() {
         LoadingState::Loading => (),
@@ -205,11 +185,7 @@ pub fn Home() -> impl IntoView {
         <Style>{include_str!("home.css")}</Style>
         <main class="container">
             <div id="search">
-                <img
-                    src="public/logo.png"
-                    class="logo"
-                    alt="Fosstoon logo"
-                />
+                <img src="public/logo.png" class="logo" alt="Fosstoon logo" />
                 <div class="search_input">
                     <input
                         type="text"
@@ -269,7 +245,10 @@ pub fn Home() -> impl IntoView {
                             key=|wt| wt.id.wt_id
                             let(wt: WebtoonSearchInfo)
                         >
-                            <Webtoon wt_info=wt.clone() is_local=app_mode.get() == AppMode::Recommandation />
+                            <Webtoon
+                                wt_info=wt.clone()
+                                is_local=app_mode.get() == AppMode::Recommandation
+                            />
                         </For>
                     </Show>
 

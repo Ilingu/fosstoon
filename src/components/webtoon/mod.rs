@@ -15,9 +15,17 @@ pub fn Webtoon(
 ) -> impl IntoView {
     view! {
         <Style>{include_str!("webtoon.css")}</Style>
-        <div class="webtoon">
+        <a
+            class="webtoon"
+            href=move || format!("/webtoon?wt_id={}&wt_type={}", id.wt_id, id.wt_type)
+        >
             <div class="thumbnail">
-                <img src=move || if is_local { convert_file_src(&thumbnail) } else { thumbnail.clone() } alt="Webtoon poster" />
+                <img
+                    src=move || {
+                        if is_local { convert_file_src(&thumbnail) } else { thumbnail.clone() }
+                    }
+                    alt="Webtoon poster"
+                />
             </div>
             <div class="title">
                 <span>{title}</span>
@@ -28,7 +36,7 @@ pub fn Webtoon(
             <div class="author">
                 <span>{creator}</span>
             </div>
-        </div>
+        </a>
     }
 }
 

@@ -13,5 +13,5 @@ pub async fn fetch_wt_imgs(
         false => app.path().app_local_data_dir(),
     }
     .map_err(|e| e.to_string())?;
-    download_images(&cache_dir, images_url).await
+    download_images(&cache_dir, images_url, |_| {}).await
 }

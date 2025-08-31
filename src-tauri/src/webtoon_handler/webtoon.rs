@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use nanorand::{Rng, WyRand};
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use webtoon::platform::webtoons::{self, Webtoon};
@@ -11,7 +11,7 @@ use webtoon_sdk::{
     image_dl::download_images,
     recommandations::{fetch_canvas, fetch_original},
     webtoon::{WebtoonInfo, WebtoonSearchInfo},
-    WebtoonId, WtType,
+    WebtoonId, WtDownloadingInfo, WtType,
 };
 
 use crate::{constants::WEBTOONS_STORE, store::UserData, webtoon_handler::FromWtType};
@@ -85,6 +85,10 @@ pub async fn search_webtoon(
 
 #[tauri::command]
 pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<WebtoonInfo, String> {
+    let wt_dl_progress_cb = |news: WtDownloadingInfo| {
+        let _ = app.emit("wt_dl_channel", news);
+    };
+
     let webtoons_store = app
         .store(WEBTOONS_STORE)
         .map_err(|_| "Failed to open wt store")?;
@@ -101,28 +105,30 @@ pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<We
         }
         Some(Ok(mut wt)) if wt.expired_at <= SystemTime::now() => {
             // refresh expired webtoon
-            wt.refresh().await?;
+            wt.refresh(wt_dl_progress_cb).await?;
             wt
         }
         Some(Ok(mut wt)) if wt.refresh_eps_at <= SystemTime::now() => {
             // get missing eps
-            wt.update_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
-                .await?;
+            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+            wt.update_episodes(&thumb_path, wt_dl_progress_cb).await?;
             wt
         }
         Some(Ok(mut wt)) => {
             // refresh expired webtoon
-            wt.refresh().await?;
+            wt.refresh(wt_dl_progress_cb).await?;
+
             // get missing eps
-            wt.update_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
-                .await?;
+            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+            wt.update_episodes(&thumb_path, wt_dl_progress_cb).await?;
             wt
         }
         Some(Err(_)) | None => {
             // if not existing or type migration, fetch data
-            let mut webtoon = WebtoonInfo::new_from_id(id).await?;
+            let mut webtoon = WebtoonInfo::new_from_id(id, wt_dl_progress_cb).await?;
+            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
             webtoon
-                .fetch_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
+                .fetch_episodes(&thumb_path, wt_dl_progress_cb)
                 .await?;
             webtoon
         }
@@ -154,6 +160,7 @@ pub async fn get_homepage_recommandations(
     let new_thumb_path = download_images(
         &cache_thumb_path,
         merged.iter().map(|wt| wt.thumbnail.clone()).collect(),
+        |_| {},
     )
     .await?;
     for (wt, new_path) in merged.iter_mut().zip(new_thumb_path) {

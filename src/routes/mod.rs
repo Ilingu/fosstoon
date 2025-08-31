@@ -1,2 +1,2 @@
 pub mod home;
-pub mod wt_info;
+pub mod webtoon;

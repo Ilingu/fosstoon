@@ -13,11 +13,11 @@ pub mod types;
 ///
 /// let webtoons: Vec<WebtoonSearchInfo> = parse_or_toast!(invoke("search_webtoon", args).await, Ty = Vec<WebtoonSearchInfo>, push_toast);
 macro_rules! parse_or_toast {
-    // $expr is the future/await expression returning Result<JsValue, JsValue-like>
+    // $cmd is the future/await expression returning Result<JsValue, JsValue-like>
     // Ty = $ty: the type to deserialize into
     // $push_toast: ident referring to push_toast in scope (it must implement .run(Alert))
-    ($expr:expr, Ty = $ty:ty, $push_toast:ident) => {
-        match $expr
+    ($cmd:expr, Ty = $ty:ty, $push_toast:ident) => {
+        match $cmd
             .map(|v| {
                 serde_wasm_bindgen::from_value::<$ty>(v)
                     .map_err(|_| "Failed to parse data as the right struct".to_string())
@@ -29,6 +29,32 @@ macro_rules! parse_or_toast {
             }) {
             Ok(Ok(wt)) => wt,
             Ok(Err(e)) | Err(e) => return $push_toast.run(Alert::new(&e, AlertLevel::Error, None)),
+        }
+    };
+}
+
+#[macro_export]
+/// same as `parse_or_toast`, but with an aditional navigate feature
+macro_rules! parse_or_navigate {
+    // $cmd is the future/await expression returning Result<JsValue, JsValue-like>
+    // Ty = $ty: the type to deserialize into
+    // $push_toast: ident referring to push_toast in scope (it must implement .run(Alert))
+    ($cmd:expr, Ty = $ty:ty,  $push_toast:ident, $navigate:ident, $where:expr) => {
+        match $cmd
+            .map(|v| {
+                serde_wasm_bindgen::from_value::<$ty>(v)
+                    .map_err(|_| "Failed to parse data as the right struct".to_string())
+            })
+            .map_err(|e| {
+                e.as_string().unwrap_or(
+                    "An error happened, but we can't provide more information".to_string(),
+                )
+            }) {
+            Ok(Ok(wt)) => wt,
+            Ok(Err(e)) | Err(e) => {
+                $push_toast.run(Alert::new(&e, AlertLevel::Error, None));
+                return $navigate($where, Default::default());
+            }
         }
     };
 }

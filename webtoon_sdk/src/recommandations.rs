@@ -1,15 +1,7 @@
-/*
-https://www.webtoons.com/en/ranking/trending
-https://www.webtoons.com/en/originals
-https://www.webtoons.com/en/canvas/list?genreTab=ALL&sortOrder=MANA -> random page between 1 and 20
-*/
-
-use std::path::Path;
-
 use nanorand::{Rng, WyRand};
 use scraper::{Html, Selector};
 
-use crate::{WebtoonId, WtType, image_dl::download_images, webtoon::WebtoonSearchInfo};
+use crate::{webtoon::WebtoonSearchInfo, WebtoonId, WtType};
 
 pub async fn fetch_original() -> Result<Vec<WebtoonSearchInfo>, String> {
     let resp = reqwest::get("https://www.webtoons.com/en/originals")

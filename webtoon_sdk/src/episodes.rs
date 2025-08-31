@@ -1,7 +1,7 @@
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 
-use crate::{generate_webtoon_url, WebtoonId};
+use crate::{generate_webtoon_url, WebtoonId, WtDownloadingInfo};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EpisodePreview {
@@ -89,12 +89,17 @@ pub enum ScrapEdgeCase {
     Exclusive,
 }
 
-async fn scrap_episodes_info_until(
+async fn scrap_episodes_info_until<F: Fn(WtDownloadingInfo) + Clone>(
     id: WebtoonId,
     until_ep_id: usize,
     edge_case: ScrapEdgeCase,
+    info_cb: F,
 ) -> Result<Vec<EpisodePreview>, String> {
+    info_cb(WtDownloadingInfo::EpisodeInfo(0));
+
     let ep_selector = Selector::parse("#_listUl > li").unwrap();
+
+    let mut progress = 0;
 
     let mut episodes = vec![];
     let mut real_url = None;
@@ -140,7 +145,15 @@ async fn scrap_episodes_info_until(
             }
             last_ep_id = Some(ep_num);
         }
+
+        // update user feedback
+        {
+            progress = (progress + 10) % 100;
+            info_cb(WtDownloadingInfo::EpisodeInfo(progress))
+        }
     }
+
+    info_cb(WtDownloadingInfo::EpisodeInfo(100));
 
     episodes.reverse();
     Ok(episodes)
@@ -152,15 +165,19 @@ async fn scrap_episodes_info_until(
 /// Therefore `last_stored_ep` start at `1` and not at `0` - becarful
 ///
 /// It returns the potential missing episodes info (so if it returns an empty Vec there are no missing ep)
-pub async fn check_for_new_eps(
+pub async fn check_for_new_eps<F: Fn(WtDownloadingInfo) + Clone>(
     id: WebtoonId,
     last_stored_ep: usize,
+    info_cb: F,
 ) -> Result<Vec<EpisodePreview>, String> {
-    scrap_episodes_info_until(id, last_stored_ep, ScrapEdgeCase::Exclusive).await
+    scrap_episodes_info_until(id, last_stored_ep, ScrapEdgeCase::Exclusive, info_cb).await
 }
 
-pub async fn scrap_episodes_info(id: WebtoonId) -> Result<Vec<EpisodePreview>, String> {
-    scrap_episodes_info_until(id, 1, ScrapEdgeCase::Inclusive).await
+pub async fn scrap_episodes_info<F: Fn(WtDownloadingInfo) + Clone>(
+    id: WebtoonId,
+    info_cb: F,
+) -> Result<Vec<EpisodePreview>, String> {
+    scrap_episodes_info_until(id, 1, ScrapEdgeCase::Inclusive, info_cb).await
 }
 
 #[derive(Debug, Serialize, Deserialize)]

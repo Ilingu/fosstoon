@@ -1,4 +1,4 @@
-use std::{fmt::Display, time::Duration};
+use std::{fmt::Display, str::FromStr, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
@@ -43,6 +43,27 @@ pub enum WtType {
     Original,
     /// A Canvas webtoon.
     Canvas,
+}
+
+#[derive(Debug)]
+pub struct WtTypeParseError(String);
+impl Display for WtTypeParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl std::error::Error for WtTypeParseError {}
+
+impl FromStr for WtType {
+    type Err = WtTypeParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().trim() {
+            "original" | "originals" => Ok(Self::Original),
+            "canvas" => Ok(Self::Canvas),
+            _ => Err(WtTypeParseError("non existing field".to_string())),
+        }
+    }
 }
 
 impl Display for WtType {

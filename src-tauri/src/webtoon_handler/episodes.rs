@@ -90,8 +90,8 @@ pub async fn force_refresh_episodes(
         .map(serde_json::from_value::<WebtoonInfo>)
     {
         Some(Ok(mut wt)) => {
-            wt.update_episodes(&app.path().app_local_data_dir().map_err(|e| e.to_string())?)
-                .await?;
+            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+            wt.update_episodes(&thumb_path, |_| {}).await?;
             wt
         }
         Some(Err(_)) | None => return Err("webtoon not found".to_string()),
@@ -118,7 +118,7 @@ pub async fn get_episode_data(
 
     // episodes panels are stored temporarily in cache
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
-    let local_path = download_images(&cache_dir, ep_data.panels).await?;
+    let local_path = download_images(&cache_dir, ep_data.panels, |_| {}).await?;
     ep_data.panels = local_path;
     Ok(ep_data)
 }
