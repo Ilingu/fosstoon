@@ -4,12 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 use webtoon::platform::webtoons::{self};
-use webtoon_sdk::{
-    episodes::{EpisodeData, EpisodePreview},
-    image_dl::download_images,
-    webtoon::WebtoonInfo,
-    DownloadState, WebtoonId,
-};
+use webtoon_sdk::{episodes::EpisodeData, webtoon::WebtoonInfo, DownloadState, WebtoonId};
 
 use crate::{constants::WEBTOONS_STORE, webtoon_handler::FromWtType};
 

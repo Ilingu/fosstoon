@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::time::Duration;
 
+use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos::{leptos_dom::logging::console_log, prelude::*};
 use leptos_meta::Style;
 
 use icondata as i;

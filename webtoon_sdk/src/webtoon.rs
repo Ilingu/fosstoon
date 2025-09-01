@@ -33,6 +33,7 @@ pub struct WebtoonInfo {
     pub thumbnail: String,
     pub banner: Option<String>,
     pub creators: Vec<String>,
+    pub creator_id: Option<String>,
     pub genres: Vec<Genre>,
     pub schedule: Option<Schedule>,
     pub views: String,
@@ -59,6 +60,7 @@ impl WebtoonInfo {
         let thumb_selector = Selector::parse(".detail_header > .thmb > img").unwrap();
         let banner_selector = Selector::parse("#content > .detail_bg").unwrap();
         let creators_selector = Selector::parse(".detail_header .author_area").unwrap();
+        let creator_id_selector = Selector::parse(".detail_header .author_area > a").unwrap();
         let genre_selector = Selector::parse(".detail_header .genre").unwrap();
         let schedule_selector = Selector::parse(".detail_body .day_info").unwrap();
         let grade_selector = Selector::parse(".detail_body .grade_area .cnt").unwrap();
@@ -121,6 +123,21 @@ impl WebtoonInfo {
                     .collect::<Vec<String>>()
             }
         };
+        let creator_id = match creators.len() == 1 {
+            true => Some(
+                document
+                    .select(&creator_id_selector)
+                    .next()
+                    .ok_or("No creator id")?
+                    .attr("href")
+                    .ok_or("No href aid")?
+                    .split("/")
+                    .last()
+                    .map(|aid| aid.to_string())
+                    .ok_or("Author Id not found".to_string())?,
+            ),
+            false => None,
+        };
         let schedule = match id.wt_type {
             crate::WtType::Canvas => None,
             crate::WtType::Original => {
@@ -168,6 +185,7 @@ impl WebtoonInfo {
             thumbnail,
             banner,
             creators,
+            creator_id,
             genres,
             schedule,
             views,
@@ -274,7 +292,10 @@ impl WebtoonInfo {
         thumbnail_path: &Path,
         info_cb: F,
     ) -> Result<(), String> {
+        let eps = self.episodes.clone();
         *self = WebtoonInfo::new_from_id(self.id, info_cb.clone()).await?;
+        self.episodes = eps;
+
         self.dl_wt_thumbnail(thumbnail_path, info_cb).await?;
         Ok(())
     }

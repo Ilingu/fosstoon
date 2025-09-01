@@ -1,6 +1,6 @@
 use std::ops::Not;
 
-use leptos::{leptos_dom::logging::console_log, prelude::*, task::spawn_local};
+use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::Style;
 use leptos_router::{
     hooks::{use_navigate, use_params, use_query},
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    components::spinner::Spinner,
+    components::waiting_screen::WaitingScreen,
     parse_or_navigate, parse_or_toast,
     utility::{
         convert_file_src,
@@ -110,7 +110,6 @@ pub fn EpisodePage() -> impl IntoView {
             return;
         }
         spawn_local(async move {
-            console_log("Mark prev as read");
             parse_or_toast!(
                 invoke(
                     "mark_as_read",
@@ -215,7 +214,27 @@ pub fn EpisodePage() -> impl IntoView {
                         alt="Author thumbnail"
                     />
                     <div>
-                        <p class="author_name">{move || episode_data.get().unwrap().author_name}</p>
+                        {move || match episode_data.get().unwrap().author_id {
+                            Some(aid) => {
+                                view! {
+                                    <a
+                                        class="author_name"
+                                        href=move || { format!("/creator/{aid}") }
+                                    >
+                                        {move || episode_data.get().unwrap().author_name}
+                                    </a>
+                                }
+                                    .into_any()
+                            }
+                            None => {
+                                view! {
+                                    <p class="author_name">
+                                        {move || episode_data.get().unwrap().author_name}
+                                    </p>
+                                }
+                                    .into_any()
+                            }
+                        }}
                         <p class="author_note">{move || episode_data.get().unwrap().author_note}</p>
                     </div>
                 </div>
@@ -289,17 +308,6 @@ fn PostComponent(post_data: Post) -> impl IntoView {
                     {post_data.downvotes}
                 </p>
             </div>
-        </div>
-    }
-}
-
-#[component]
-fn WaitingScreen(dl_state: ReadSignal<DownloadState>) -> impl IntoView {
-    view! {
-        <div class="loading_screen">
-            <Spinner />
-            <progress max="100" value=move || dl_state.get().get_progress() />
-            <p>{move || dl_state.get().get_state()}</p>
         </div>
     }
 }

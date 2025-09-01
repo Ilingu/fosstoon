@@ -36,7 +36,7 @@ impl FromWebtoon for WebtoonSearchInfo {
                 .thumbnail()
                 .await
                 .map_err(|err| err.to_string())?
-                .ok_or("No thumbnail found")?,
+                .unwrap_or_default(),
             creator: Some(
                 webtoon
                     .creators()
@@ -150,7 +150,6 @@ pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<We
 pub async fn get_homepage_recommandations(
     app: tauri::AppHandle,
 ) -> Result<Vec<WebtoonSearchInfo>, String> {
-    return Ok(vec![]);
     let mut canvas = fetch_canvas().await?;
     let original = fetch_original().await?;
 

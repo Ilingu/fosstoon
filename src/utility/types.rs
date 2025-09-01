@@ -120,7 +120,7 @@ impl WebtoonId {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct WebtoonSearchInfo {
     pub id: WebtoonId,
     pub title: String,
@@ -156,14 +156,16 @@ pub enum Language {
     De,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct WebtoonInfo {
     pub id: WebtoonId,
 
     pub title: String,
     pub thumbnail: String,
+    #[allow(dead_code)]
     pub banner: Option<String>,
     pub creators: Vec<String>,
+    pub creator_id: Option<String>,
     pub genres: Vec<Genre>,
     pub schedule: Option<Schedule>,
     pub views: String,
@@ -173,7 +175,7 @@ pub struct WebtoonInfo {
     pub episodes: Option<Vec<EpisodePreview>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct EpisodePreview {
     pub parent_wt_id: WebtoonId,
 
@@ -182,6 +184,7 @@ pub struct EpisodePreview {
     pub thumbnail: String,
     pub likes: usize,
     pub posted_at: String,
+    #[allow(dead_code)]
     pub ep_url: String,
 }
 
@@ -199,12 +202,15 @@ pub struct EpisodeData {
     pub panels: Vec<String>,
     pub author_note: Option<String>,
     pub author_name: String,
+    pub author_id: Option<String>,
     pub author_thumb: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Post {
+    #[allow(dead_code)]
     pub wt_id: WebtoonId,
+    #[allow(dead_code)]
     pub ep_num: usize,
 
     pub id: String,
@@ -216,7 +222,18 @@ pub struct Post {
     pub poster_name: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Deserialize, Clone, Debug)]
+pub struct CreatorInfo {
+    #[allow(dead_code)]
+    pub profile_id: String,
+    pub name: String,
+    pub followers: Option<u32>,
+    pub webtoons: Vec<WebtoonSearchInfo>,
+}
+
+/* HELPERS TYPES */
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Schedule {
     /// Released on a single day of the week
     Weekday(Weekday),
@@ -229,7 +246,7 @@ pub enum Schedule {
 }
 
 /// Represents a day of the week
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Weekday {
     /// Released on Sunday
     Sunday,
@@ -262,7 +279,7 @@ impl Weekday {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Deserialize, Ord, PartialOrd, PartialEq, Eq, Hash)]
 pub enum Genre {
     Comedy,
     Fantasy,

@@ -1,0 +1,24 @@
+#creator_page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  .author_name {
+    margin-top: 30px;
+  }
+
+  .author_name,
+  .followers {
+    text-align: center;
+  }
+
+  #webtoons {
+    overflow: hidden scroll;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+
+    margin: 10px 0;
+    padding: 0 10px;
+  }
+}

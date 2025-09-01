@@ -13,12 +13,13 @@ pub fn Alert(alert: Alert) -> impl IntoView {
         <div class=format!("alert {}", alert.level)>
             <span>
                 {match alert.level {
-                    AlertLevel::Success => view! {<Icon icon={i::BiCheckCircleRegular} />}.into_any(),
-                    AlertLevel::Info => view! {<Icon icon={i::AiInfoCircleOutlined} />}.into_any(),
-                    AlertLevel::Warning => view! {<Icon icon={i::ImWarning} />}.into_any(),
-                    AlertLevel::Error => view! {<Icon icon={i::ChOctagonWarning} />}.into_any(),
-                }
-            }
+                    AlertLevel::Success => {
+                        view! { <Icon icon=i::BiCheckCircleRegular /> }.into_any()
+                    }
+                    AlertLevel::Info => view! { <Icon icon=i::AiInfoCircleOutlined /> }.into_any(),
+                    AlertLevel::Warning => view! { <Icon icon=i::ImWarning /> }.into_any(),
+                    AlertLevel::Error => view! { <Icon icon=i::ChOctagonWarning /> }.into_any(),
+                }}
             </span>
             <p>{alert.msg}</p>
         </div>

@@ -8,9 +8,7 @@ use crate::webtoon_handler::webtoon::FromWebtoon;
 #[derive(Serialize, Deserialize)]
 pub struct CreatorInfo {
     profile_id: String,
-
     name: String,
-
     followers: Option<u32>,
     webtoons: Vec<WebtoonSearchInfo>,
 }

@@ -68,6 +68,7 @@ pub enum LoadingState {
 
 #[derive(Clone, Debug, Default, Store, Deserialize)]
 pub struct UserData {
+    #[allow(dead_code)]
     pub language: Language,
     pub webtoons: UserWebtoons,
 

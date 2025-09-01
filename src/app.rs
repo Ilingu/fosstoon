@@ -1,13 +1,13 @@
 use crate::{
     components::alert::Alert,
-    routes::{episode::EpisodePage, home::Home, webtoon::WebtoonPage},
+    routes::{creator::CreatorPage, episode::EpisodePage, home::Home, webtoon::WebtoonPage},
     utility::{
         store::{LoadingState, UserData, UserRecommendations},
         types::{Alert, WebtoonSearchInfo},
     },
 };
 
-use leptos::{leptos_dom::logging::console_log, prelude::*};
+use leptos::prelude::*;
 use leptos_router::{
     components::{Route, Router, Routes},
     path,
@@ -114,6 +114,7 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/") view=Home />
                 <Route path=path!("/webtoon") view=WebtoonPage />
                 <Route path=path!("/webtoon/episode/:num") view=EpisodePage />
+                <Route path=path!("/creator/:id") view=CreatorPage />
             </Routes>
 
             <div id="alerts">

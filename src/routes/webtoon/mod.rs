@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos::{leptos_dom::logging::console_log, prelude::*};
 use leptos_meta::Style;
 use leptos_router::{
     hooks::{use_navigate, use_query},
@@ -15,7 +15,7 @@ use wasm_bindgen::prelude::*;
 use icondata as i;
 use leptos_icons::Icon;
 
-use crate::components::spinner::Spinner;
+use crate::components::waiting_screen::WaitingScreen;
 use crate::utility::convert_file_src;
 use crate::utility::store::{LoadingState, UserData, UserDataStoreFields};
 use crate::utility::types::{
@@ -97,17 +97,6 @@ pub fn WebtoonPage() -> impl IntoView {
     });
 
     /* Handlers */
-    let has_already_seen_ep = move |ep_num: usize| match (webtoon_info.get(), is_subscribed.get()) {
-        (Some(wt), true) => user_state
-            .webtoons()
-            .get()
-            .get(&wt.id.wt_id.to_string())
-            .unwrap()
-            .episode_seen
-            .contains_key(&ep_num.to_string()),
-        _ => false,
-    };
-
     let toggle_ep_order = move |_| {
         set_ep_order.update(|ep_order| {
             *ep_order = match ep_order {
@@ -306,7 +295,12 @@ pub fn WebtoonPage() -> impl IntoView {
                             .unwrap()
                             .creators
                             .into_iter()
-                            .map(|c| view! { <span>{c}</span> })
+                            .map(|c| match webtoon_info.get().unwrap().creator_id {
+                                Some(aid) => {
+                                    view! { <a href=format!("/creator/{aid}")>{c}</a> }.into_any()
+                                }
+                                None => view! { <span>{c}</span> }.into_any(),
+                            })
                             .collect_view()}
                     </p>
                     <p class="summary">{move || webtoon_info.get().unwrap().summary}</p>
@@ -415,16 +409,5 @@ fn Episode(episode: EpisodePreview, seen: bool) -> impl IntoView {
                 {episode.likes}
             </p>
         </a>
-    }
-}
-
-#[component]
-fn WaitingScreen(dl_state: ReadSignal<DownloadState>) -> impl IntoView {
-    view! {
-        <div class="loading_screen">
-            <Spinner />
-            <progress max="100" value=move || dl_state.get().get_progress() />
-            <p>{move || dl_state.get().get_state()}</p>
-        </div>
     }
 }

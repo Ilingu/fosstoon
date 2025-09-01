@@ -190,6 +190,7 @@ pub struct EpisodeData {
     pub panels: Vec<String>,
     pub author_note: Option<String>,
     pub author_name: String,
+    pub author_id: Option<String>,
     pub author_thumb: String,
 }
 
@@ -251,6 +252,22 @@ impl EpisodePreview {
             .ok_or("No author name")?
             .text()
             .collect::<String>();
+        let author_id = match document
+            .select(&name_selector)
+            .next()
+            .ok_or("No author name")?
+            .attr("href")
+            .map(|href| {
+                href.split("/")
+                    .last()
+                    .map(|aid| aid.to_string())
+                    .ok_or("Author Id not found".to_string())
+            }) {
+            Some(Ok(aid)) => Some(aid),
+            Some(Err(e)) => return Err(e),
+            None => None,
+        };
+
         let author_thumb = document
             .select(&thumb_selector)
             .next()
@@ -264,10 +281,10 @@ impl EpisodePreview {
         Ok(EpisodeData {
             parent_wt_id: self.parent_wt_id,
             number: self.number,
-
             panels,
             author_note,
             author_name,
+            author_id,
             author_thumb,
         })
     }
