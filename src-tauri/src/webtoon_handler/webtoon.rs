@@ -10,7 +10,7 @@ use webtoon_sdk::{
     image_dl::download_images,
     recommandations::{fetch_canvas, fetch_original},
     webtoon::{WebtoonInfo, WebtoonSearchInfo},
-    WebtoonId, WtDownloadingInfo, WtType,
+    DownloadState, WebtoonId, WtType,
 };
 
 use crate::{constants::WEBTOONS_STORE, store::UserData, webtoon_handler::FromWtType};
@@ -84,7 +84,7 @@ pub async fn search_webtoon(
 
 #[tauri::command]
 pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<WebtoonInfo, String> {
-    let wt_dl_progress_cb = |news: WtDownloadingInfo| {
+    let wt_dl_progress_cb = |news: DownloadState| {
         let _ = app.emit("wt_dl_channel", news);
     };
 

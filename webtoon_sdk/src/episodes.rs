@@ -1,7 +1,9 @@
+use std::path::Path;
+
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 
-use crate::{generate_webtoon_url, WebtoonId, WtDownloadingInfo};
+use crate::{generate_webtoon_url, image_dl::download_images, DownloadState, WebtoonId};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EpisodePreview {
@@ -89,13 +91,13 @@ pub enum ScrapEdgeCase {
     Exclusive,
 }
 
-async fn scrap_episodes_info_until<F: Fn(WtDownloadingInfo) + Clone>(
+async fn scrap_episodes_info_until<F: Fn(DownloadState) + Clone>(
     id: WebtoonId,
     until_ep_id: usize,
     edge_case: ScrapEdgeCase,
     info_cb: F,
 ) -> Result<Vec<EpisodePreview>, String> {
-    info_cb(WtDownloadingInfo::EpisodeInfo(0));
+    info_cb(DownloadState::EpisodeInfo(0));
 
     let ep_selector = Selector::parse("#_listUl > li").unwrap();
 
@@ -149,11 +151,11 @@ async fn scrap_episodes_info_until<F: Fn(WtDownloadingInfo) + Clone>(
         // update user feedback
         {
             progress = (progress + 10) % 100;
-            info_cb(WtDownloadingInfo::EpisodeInfo(progress))
+            info_cb(DownloadState::EpisodeInfo(progress))
         }
     }
 
-    info_cb(WtDownloadingInfo::EpisodeInfo(100));
+    info_cb(DownloadState::EpisodeInfo(100));
 
     episodes.reverse();
     Ok(episodes)
@@ -165,7 +167,7 @@ async fn scrap_episodes_info_until<F: Fn(WtDownloadingInfo) + Clone>(
 /// Therefore `last_stored_ep` start at `1` and not at `0` - becarful
 ///
 /// It returns the potential missing episodes info (so if it returns an empty Vec there are no missing ep)
-pub async fn check_for_new_eps<F: Fn(WtDownloadingInfo) + Clone>(
+pub async fn check_for_new_eps<F: Fn(DownloadState) + Clone>(
     id: WebtoonId,
     last_stored_ep: usize,
     info_cb: F,
@@ -173,7 +175,7 @@ pub async fn check_for_new_eps<F: Fn(WtDownloadingInfo) + Clone>(
     scrap_episodes_info_until(id, last_stored_ep, ScrapEdgeCase::Exclusive, info_cb).await
 }
 
-pub async fn scrap_episodes_info<F: Fn(WtDownloadingInfo) + Clone>(
+pub async fn scrap_episodes_info<F: Fn(DownloadState) + Clone>(
     id: WebtoonId,
     info_cb: F,
 ) -> Result<Vec<EpisodePreview>, String> {
@@ -186,19 +188,47 @@ pub struct EpisodeData {
     pub number: usize,
 
     pub panels: Vec<String>,
-    pub author_note: String,
+    pub author_note: Option<String>,
     pub author_name: String,
     pub author_thumb: String,
 }
 
+impl EpisodeData {
+    pub async fn dl_panels<F: Fn(DownloadState) + Clone>(
+        &mut self,
+        cache_dir: &Path,
+        info_cb: F,
+    ) -> Result<(), String> {
+        let panels_path = download_images(cache_dir, self.panels.clone(), info_cb.clone()).await?;
+        self.panels = panels_path;
+
+        let author_thumb_path =
+            match download_images(cache_dir, vec![self.author_thumb.clone()], info_cb)
+                .await?
+                .as_slice()
+            {
+                [first] => first.to_owned(),
+                _ => return Err("Failed to download author thumbnail".to_string()),
+            };
+        self.author_thumb = author_thumb_path;
+
+        Ok(())
+    }
+}
+
 impl EpisodePreview {
-    pub async fn get_episode_data(&self) -> Result<EpisodeData, String> {
+    pub async fn get_episode_data<F: Fn(DownloadState) + Clone>(
+        &self,
+        info_cb: F,
+    ) -> Result<EpisodeData, String> {
+        info_cb(DownloadState::EpisodeInfo(0));
         let raw_html = reqwest::get(&self.ep_url)
             .await
             .map_err(|e| e.to_string())?
             .text()
             .await
             .map_err(|e| e.to_string())?;
+        info_cb(DownloadState::EpisodeInfo(50));
 
         let document = Html::parse_document(&raw_html);
         let panel_selector = Selector::parse("#_imageList > img").unwrap();
@@ -214,9 +244,7 @@ impl EpisodePreview {
         let author_note = document
             .select(&note_selector)
             .next()
-            .ok_or("No note")?
-            .text()
-            .collect::<String>();
+            .map(|e| e.text().collect::<String>());
         let author_name = document
             .select(&name_selector)
             .next()
@@ -230,6 +258,8 @@ impl EpisodePreview {
             .attr("src")
             .ok_or("No author thumb src")?
             .to_string();
+
+        info_cb(DownloadState::EpisodeInfo(100));
 
         Ok(EpisodeData {
             parent_wt_id: self.parent_wt_id,

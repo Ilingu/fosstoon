@@ -15,12 +15,13 @@ use wasm_bindgen::prelude::*;
 use icondata as i;
 use leptos_icons::Icon;
 
-use crate::parse_or_navigate;
+use crate::components::spinner::Spinner;
 use crate::utility::convert_file_src;
 use crate::utility::store::{LoadingState, UserData, UserDataStoreFields};
 use crate::utility::types::{
-    Alert, AlertLevel, EpisodePreview, Schedule, WebtoonId, WebtoonInfo, WtType,
+    Alert, AlertLevel, DownloadState, EpisodePreview, Schedule, WebtoonId, WebtoonInfo, WtType,
 };
+use crate::{parse_or_navigate, parse_or_toast};
 
 #[wasm_bindgen]
 extern "C" {
@@ -47,39 +48,6 @@ struct WebtoonQueryArgs {
     wt_type: Option<WtType>,
 }
 
-// hazeshift: 7576
-
-#[derive(Debug, Clone, Deserialize)]
-enum WtDownloadingInfo {
-    WebtoonData(u8),
-    EpisodeInfo(u8),
-    CachingImages(u8),
-
-    Idle,
-    Completed,
-}
-
-impl WtDownloadingInfo {
-    fn get_progress(&self) -> u8 {
-        *match self {
-            WtDownloadingInfo::WebtoonData(p)
-            | WtDownloadingInfo::CachingImages(p)
-            | WtDownloadingInfo::EpisodeInfo(p) => p,
-            _ => &0_u8,
-        }
-    }
-    fn get_state(&self) -> String {
-        match self {
-            WtDownloadingInfo::WebtoonData(_) => "Fetching webtoon informations...",
-            WtDownloadingInfo::EpisodeInfo(_) => "Fecthing episodes informations...",
-            WtDownloadingInfo::CachingImages(_) => "Caching thumbnail (may take a while)...",
-            WtDownloadingInfo::Idle => "Currently not downloading anything",
-            WtDownloadingInfo::Completed => "Finished to download webtoon",
-        }
-        .to_string()
-    }
-}
-
 #[derive(Debug, Clone)]
 enum EpOrder {
     Latest,
@@ -99,7 +67,7 @@ pub fn WebtoonPage() -> impl IntoView {
     let user_state = expect_context::<Store<UserData>>();
 
     let (webtoon_info, set_wt_info) = signal(None::<WebtoonInfo>);
-    let (downloading_state, set_dl_state) = signal(WtDownloadingInfo::Idle);
+    let (dl_state, set_dl_state) = signal(DownloadState::Idle);
     let (ep_order, set_ep_order) = signal(EpOrder::Latest);
 
     let is_subscribed = Memo::new(move |_| {
@@ -128,7 +96,18 @@ pub fn WebtoonPage() -> impl IntoView {
         _ => None,
     });
 
-    /* Handles */
+    /* Handlers */
+    let has_already_seen_ep = move |ep_num: usize| match (webtoon_info.get(), is_subscribed.get()) {
+        (Some(wt), true) => user_state
+            .webtoons()
+            .get()
+            .get(&wt.id.wt_id.to_string())
+            .unwrap()
+            .episode_seen
+            .contains_key(&ep_num.to_string()),
+        _ => false,
+    };
+
     let toggle_ep_order = move |_| {
         set_ep_order.update(|ep_order| {
             *ep_order = match ep_order {
@@ -139,58 +118,52 @@ pub fn WebtoonPage() -> impl IntoView {
     };
 
     let toggle_sub = move |_| {
-        if webtoon_info.get_untracked().is_none() {
-            return;
-        }
+        if let Some(wt) = webtoon_info.get_untracked() {
+            let is_sub = is_subscribed.get_untracked();
 
-        let is_sub = is_subscribed.get_untracked();
-        let wt_id = webtoon_info.get_untracked().unwrap().id;
+            let args = serde_wasm_bindgen::to_value(&SubWtInfoArgs { webtoon_id: wt.id }).unwrap();
+            spawn_local(async move {
+                let cmd_to_invoke = match is_sub {
+                    true => "unsubscribe_from_webtoon",
+                    false => "subscribe_to_webtoon",
+                };
 
-        let args = serde_wasm_bindgen::to_value(&SubWtInfoArgs { webtoon_id: wt_id }).unwrap();
-        spawn_local(async move {
-            let cmd_to_invoke = match is_sub {
-                true => "unsubscribe_from_webtoon",
-                false => "subscribe_to_webtoon",
-            };
+                match invoke(cmd_to_invoke, args).await {
+                    Ok(_) => {
+                        push_toast.run(Alert::new(
+                            match is_sub {
+                                true => "Unsubscribed successfully",
+                                false => "Subscribed successfully",
+                            },
+                            AlertLevel::Success,
+                            Some(Duration::from_secs(2)),
+                        ));
 
-            match invoke(cmd_to_invoke, args).await {
-                Ok(_) => {
-                    push_toast.run(Alert::new(
+                        // update user frontend store
                         match is_sub {
-                            true => "Unsubscribed successfully",
-                            false => "Subscribed successfully",
+                            true => {
+                                user_state.update(|us| {
+                                    us.webtoons.remove(&wt.id.wt_id.to_string());
+                                });
+                            }
+                            false => {
+                                user_state.update(|us| {
+                                    us.webtoons.insert(wt.id.wt_id.to_string(), wt.into());
+                                });
+                            }
+                        };
+                    }
+                    Err(_) => push_toast.run(Alert::new(
+                        match is_sub {
+                            true => "Failed to unsubscribe",
+                            false => "Failed to subscribe",
                         },
-                        AlertLevel::Success,
-                        Some(Duration::from_secs(2)),
-                    ));
-
-                    // update user frontend store
-                    match is_sub {
-                        true => {
-                            user_state.update(|us| {
-                                us.webtoons.remove(&wt_id.wt_id.to_string());
-                            });
-                        }
-                        false => {
-                            user_state.update(|us| {
-                                us.webtoons.insert(
-                                    wt_id.wt_id.to_string(),
-                                    webtoon_info.get_untracked().unwrap().into(),
-                                );
-                            });
-                        }
-                    };
+                        AlertLevel::Error,
+                        None,
+                    )),
                 }
-                Err(_) => push_toast.run(Alert::new(
-                    match is_sub {
-                        true => "Failed to unsubscribe",
-                        false => "Failed to subscribe",
-                    },
-                    AlertLevel::Error,
-                    None,
-                )),
-            }
-        });
+            });
+        }
     };
     let fetch_wt_info = move |webtoon_id: WebtoonId| {
         let navigate = use_navigate();
@@ -200,7 +173,7 @@ pub fn WebtoonPage() -> impl IntoView {
             let closure = Closure::<dyn FnMut(_)>::new(move |jsv: JsValue| {
                 #[derive(Deserialize)]
                 struct Event {
-                    payload: WtDownloadingInfo,
+                    payload: DownloadState,
                 }
 
                 if let Ok(Event { payload: dl_info }) = serde_wasm_bindgen::from_value::<Event>(jsv)
@@ -227,6 +200,28 @@ pub fn WebtoonPage() -> impl IntoView {
             // close data gathering
             closure.forget();
         });
+    };
+    let force_ep_reload = move |_| {
+        if let Some(wt) = webtoon_info.get_untracked() {
+            spawn_local(async move {
+                // refetch webtoon episodes
+                let refreshed_wt = parse_or_toast!(
+                    invoke(
+                        "force_refresh_episodes",
+                        serde_wasm_bindgen::to_value(&FetchWtInfoArgs { id: wt.id }).unwrap()
+                    )
+                    .await,
+                    Ty = WebtoonInfo,
+                    push_toast
+                );
+                set_wt_info.set(Some(refreshed_wt));
+                push_toast.run(Alert::new(
+                    "Episodes refreshed successfully",
+                    AlertLevel::Success,
+                    Some(Duration::from_secs(1)),
+                ))
+            });
+        }
     };
 
     /* Effects */
@@ -272,13 +267,16 @@ pub fn WebtoonPage() -> impl IntoView {
         <Style>{include_str!("wt.css")}</Style>
         <Show
             when=move || { webtoon_info.get().is_some() }
-            fallback=move || view! { <WaitingScreen downloading_state /> }
+            fallback=move || view! { <WaitingScreen dl_state /> }
         >
             <div id="webtoon_page">
                 <header>
                     <a href="/">
                         <Icon icon=i::IoCaretBackOutline />
                     </a>
+                    <button on:click=force_ep_reload>
+                        <Icon icon=i::MdiReload />
+                    </button>
                     <button on:click=toggle_sub>
                         <Show
                             when=move || {
@@ -368,7 +366,22 @@ pub fn WebtoonPage() -> impl IntoView {
                                 key=|ep| ep.number
                                 let(episode)
                             >
-                                <Episode episode />
+                                <Episode
+                                    seen=match (webtoon_info.get(), is_subscribed.get()) {
+                                        (Some(wt), true) => {
+                                            user_state
+                                                .webtoons()
+                                                .get()
+                                                .get(&wt.id.wt_id.to_string())
+                                                .unwrap()
+                                                .episode_seen
+                                                .contains_key(&episode.number.to_string())
+                                        }
+                                        _ => false,
+                                    }
+                                    episode
+                                />
+
                             </For>
                         </div>
                     </Show>
@@ -379,7 +392,7 @@ pub fn WebtoonPage() -> impl IntoView {
 }
 
 #[component]
-fn Episode(episode: EpisodePreview) -> impl IntoView {
+fn Episode(episode: EpisodePreview, seen: bool) -> impl IntoView {
     view! {
         <a
             href=move || {
@@ -390,13 +403,11 @@ fn Episode(episode: EpisodePreview) -> impl IntoView {
                     episode.parent_wt_id.wt_type,
                 )
             }
-            class="episode"
+            class=format!("episode {}", if seen { "active" } else { "" })
         >
             <img src=move || convert_file_src(&episode.thumbnail) alt="Episode thumbnail" />
             <div class="ep_info">
-                <p class="ep_title">
-                    {move || format!("Ep. {} - {}", episode.number, episode.title)}
-                </p>
+                <p class="ep_title">{move || format!("#{} - {}", episode.number, episode.title)}</p>
                 <p class="ep_date">{episode.posted_at}</p>
             </div>
             <p class="ep_likes">
@@ -408,12 +419,12 @@ fn Episode(episode: EpisodePreview) -> impl IntoView {
 }
 
 #[component]
-fn WaitingScreen(downloading_state: ReadSignal<WtDownloadingInfo>) -> impl IntoView {
+fn WaitingScreen(dl_state: ReadSignal<DownloadState>) -> impl IntoView {
     view! {
-        <div id="loading_screen">
-            <Icon icon=i::CgSpinnerAlt />
-            <progress max="100" value=move || downloading_state.get().get_progress() />
-            <p>{move || downloading_state.get().get_state()}</p>
+        <div class="loading_screen">
+            <Spinner />
+            <progress max="100" value=move || dl_state.get().get_progress() />
+            <p>{move || dl_state.get().get_state()}</p>
         </div>
     }
 }

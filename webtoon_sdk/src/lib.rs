@@ -8,12 +8,13 @@ use serde::{Deserialize, Serialize};
 
 /* Type Definition */
 #[derive(Debug, Clone, Serialize)]
-pub enum WtDownloadingInfo {
+pub enum DownloadState {
     WebtoonData(u8),
     EpisodeInfo(u8),
     CachingImages(u8),
 
     Idle,
+    Completed,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

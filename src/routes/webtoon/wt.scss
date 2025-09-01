@@ -1,32 +1,3 @@
-#loading_screen {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-
-  svg {
-    margin-top: 10px;
-    margin-bottom: 20px;
-    animation: spin 1.5s ease infinite;
-    width: 2.2em;
-    height: 2.2em;
-  }
-  progress {
-    transition: all 0.2s ease-in-out;
-  }
-  p {
-    color: #ccc;
-    font-size: 0.8em;
-    font-weight: bold;
-    font-style: italic;
-  }
-}
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 #webtoon_page {
   width: 100%;
   height: 100%;
@@ -139,6 +110,13 @@
         font-family: monospace;
       }
 
+      .episode.active {
+        background-color: #000;
+        .ep_title {
+          text-decoration: line-through;
+        }
+      }
+
       .episode {
         margin: 5px;
         display: flex;
@@ -159,7 +137,7 @@
           flex-direction: column;
           justify-content: center;
 
-          .ep_title:first-child {
+          .ep_title {
             font-weight: 700;
           }
           .ep_date {

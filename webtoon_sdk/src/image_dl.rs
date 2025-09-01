@@ -3,15 +3,15 @@ use std::path::Path;
 use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::fs;
 
-use crate::WtDownloadingInfo;
+use crate::DownloadState;
 
 // todo: reverif que ca marche
-pub async fn download_images<F: Fn(WtDownloadingInfo) + Clone>(
+pub async fn download_images<F: Fn(DownloadState) + Clone>(
     cache_dir: &Path,
     images_url: Vec<String>,
     info_cb: F,
 ) -> Result<Vec<String>, String> {
-    info_cb(WtDownloadingInfo::CachingImages(0));
+    info_cb(DownloadState::CachingImages(0));
 
     // create images disk path
     let images_path = images_url
@@ -87,7 +87,7 @@ pub async fn download_images<F: Fn(WtDownloadingInfo) + Clone>(
                 .map_err(|e| e.to_string())??;
 
             responses_num += 1;
-            info_cb(WtDownloadingInfo::CachingImages(
+            info_cb(DownloadState::CachingImages(
                 (((responses_num as f64) / (requests_num as f64)) * 100.0).round() as u8,
             ));
             responses_data[order] = Some(bytes_resp);
@@ -100,7 +100,7 @@ pub async fn download_images<F: Fn(WtDownloadingInfo) + Clone>(
             .map_err(|e| e.to_string())?
     };
 
-    info_cb(WtDownloadingInfo::CachingImages(90));
+    info_cb(DownloadState::CachingImages(90));
 
     // write to disk
     futures::future::join_all(
@@ -122,7 +122,7 @@ pub async fn download_images<F: Fn(WtDownloadingInfo) + Clone>(
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| e.to_string())?;
 
-    info_cb(WtDownloadingInfo::CachingImages(100));
+    info_cb(DownloadState::CachingImages(100));
 
     // return the path where the image are saved
     Ok(images_path)

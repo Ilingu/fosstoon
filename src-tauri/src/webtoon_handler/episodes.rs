@@ -1,14 +1,14 @@
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 use webtoon::platform::webtoons::{self};
 use webtoon_sdk::{
     episodes::{EpisodeData, EpisodePreview},
     image_dl::download_images,
     webtoon::WebtoonInfo,
-    WebtoonId,
+    DownloadState, WebtoonId,
 };
 
 use crate::{constants::WEBTOONS_STORE, webtoon_handler::FromWtType};
@@ -71,9 +71,9 @@ impl PostExtension for EpisodeData {
 
 /* Commands */
 
-#[tauri::command]
-pub async fn get_episode_post(id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String> {
-    webtoon_sdk::episodes::EpisodeData::fetch_posts(id, ep_num).await
+#[tauri::command(rename_all = "snake_case")]
+pub async fn get_episode_post(wt_id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String> {
+    webtoon_sdk::episodes::EpisodeData::fetch_posts(wt_id, ep_num).await
 }
 
 #[tauri::command]
@@ -109,16 +109,41 @@ pub async fn force_refresh_episodes(
     Ok(updated_wt)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn get_episode_data(
     app: tauri::AppHandle,
-    ep: EpisodePreview,
+    wt_id: WebtoonId,
+    ep_num: usize,
 ) -> Result<EpisodeData, String> {
-    let mut ep_data = ep.get_episode_data().await?;
+    if ep_num == 0 {
+        return Err("episode number cannot be 0".to_string());
+    }
+
+    let dl_progress_cb = |news: DownloadState| {
+        let _ = app.emit("ep_dl_channel", news);
+    };
+
+    let webtoons_store = app
+        .store(WEBTOONS_STORE)
+        .map_err(|_| "Failed to open wt store")?;
+
+    let webtoon = webtoons_store
+        .get(wt_id.wt_id.to_string())
+        .map(serde_json::from_value::<WebtoonInfo>)
+        .ok_or("No webtoon found in store")?
+        .map_err(|e| e.to_string())?;
+    let episode = webtoon
+        .episodes
+        .ok_or("No episode found in store")?
+        .get(ep_num - 1)
+        .cloned()
+        .ok_or("Requested episode not found in store")?;
+
+    let mut ep_data = episode.get_episode_data(dl_progress_cb).await?;
 
     // episodes panels are stored temporarily in cache
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
-    let local_path = download_images(&cache_dir, ep_data.panels, |_| {}).await?;
-    ep_data.panels = local_path;
+    ep_data.dl_panels(&cache_dir, dl_progress_cb).await?;
+
     Ok(ep_data)
 }

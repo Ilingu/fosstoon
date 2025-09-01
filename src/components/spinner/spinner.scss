@@ -1,0 +1,10 @@
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+svg {
+  animation: spin 1.5s ease infinite;
+  width: 2.2em;
+  height: 2.2em;
+}

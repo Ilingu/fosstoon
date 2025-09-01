@@ -90,6 +90,32 @@ pub async fn change_language(
 }
 
 #[tauri::command(rename_all = "snake_case")]
+pub async fn mark_as_read(
+    user_state: tauri::State<'_, Mutex<UserData>>,
+    app: tauri::AppHandle,
+    wt_id: WebtoonId,
+    ep_num: usize,
+) -> Result<(), String> {
+    let user_store = app
+        .store(USER_STORE)
+        .map_err(|_| "Failed to open user store")?;
+
+    let mut user_data = user_state.lock().await;
+    user_data.webtoons.entry(wt_id.wt_id).and_modify(|wt| {
+        wt.episode_seen.insert(ep_num, true);
+        wt.last_ep_num_seen = Some(ep_num);
+    });
+
+    user_store.set(
+        USER_WEBTOONS_KEY,
+        serde_json::to_value(&user_data.webtoons)
+            .map_err(|_| "Couldn't serialize user new webtoons")?,
+    );
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
 pub async fn subscribe_to_webtoon(
     user_state: tauri::State<'_, Mutex<UserData>>,
     app: tauri::AppHandle,

@@ -7,8 +7,8 @@ use crate::{
     constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY},
     image_handler::fetch_wt_imgs,
     store::{
-        change_language, get_user_data, subscribe_to_webtoon, unsubscribe_from_webtoon, UserData,
-        UserWebtoons,
+        change_language, get_user_data, mark_as_read, subscribe_to_webtoon,
+        unsubscribe_from_webtoon, UserData, UserWebtoons,
     },
     webtoon_handler::{
         creator::get_author_info,
@@ -51,6 +51,7 @@ pub fn run() -> Result<(), String> {
             get_user_data,
             subscribe_to_webtoon,
             unsubscribe_from_webtoon,
+            mark_as_read,
             change_language,
             // webtoons
             search_webtoon,

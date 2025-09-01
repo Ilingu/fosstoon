@@ -35,6 +35,35 @@ impl Alert {
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub enum DownloadState {
+    WebtoonData(u8),
+    EpisodeInfo(u8),
+    CachingImages(u8),
+
+    Idle,
+    Completed,
+}
+
+impl DownloadState {
+    pub fn get_progress(&self) -> u8 {
+        *match self {
+            Self::WebtoonData(p) | Self::CachingImages(p) | Self::EpisodeInfo(p) => p,
+            _ => &0_u8,
+        }
+    }
+    pub fn get_state(&self) -> String {
+        match self {
+            Self::WebtoonData(_) => "Fetching webtoon informations...",
+            Self::EpisodeInfo(_) => "Fecthing episodes informations...",
+            Self::CachingImages(_) => "Downloading images (thumbail|panels: may take a while)...",
+            Self::Idle => "Currently not doing anything",
+            Self::Completed => "Finished to download webtoon",
+        }
+        .to_string()
+    }
+}
+
 /* BACKEND TYPES */
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -162,6 +191,31 @@ impl PartialEq for EpisodePreview {
     }
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct EpisodeData {
+    pub parent_wt_id: WebtoonId,
+    pub number: usize,
+
+    pub panels: Vec<String>,
+    pub author_note: Option<String>,
+    pub author_name: String,
+    pub author_thumb: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Post {
+    pub wt_id: WebtoonId,
+    pub ep_num: usize,
+
+    pub id: String,
+    pub content: String,
+    pub is_spoiler: bool,
+    pub upvotes: u32,
+    pub downvotes: u32,
+    pub posted_at: u64,
+    pub poster_name: String,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Schedule {
     /// Released on a single day of the week
@@ -194,7 +248,7 @@ pub enum Weekday {
 }
 
 impl Weekday {
-    pub fn to_acronym(&self) -> &str {
+    pub fn to_acronym(self) -> &'static str {
         match self {
             Weekday::Sunday => "Sun",
             Weekday::Monday => "Mon",

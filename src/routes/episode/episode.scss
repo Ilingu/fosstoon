@@ -1,0 +1,132 @@
+#episode_page {
+  overflow-x: hidden;
+  #panels {
+    > img {
+      width: 100vw;
+      margin-bottom: -8px;
+    }
+  }
+
+  > .author_info {
+    margin: 20px 10px;
+    display: flex;
+    > img {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    > div {
+      margin-left: 10px;
+      .author_name {
+        font-weight: bold;
+        font-size: 1.2em;
+      }
+    }
+  }
+
+  > .action {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+
+    a {
+      width: 70%;
+      padding: 12.5px;
+
+      transition: all 0.4s ease;
+
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 5px;
+      background: #111;
+
+      > div {
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        p:first-child {
+          font-weight: bold;
+          font-size: 1.1em;
+          margin-right: 5px;
+        }
+        p:nth-child(2) {
+          font-size: 0.9em;
+          color: #ddd;
+        }
+      }
+
+      svg {
+        width: 1.5em;
+        height: 1.5em;
+      }
+    }
+
+    a:hover {
+      scale: 1.03;
+      border: 1px solid #555;
+    }
+  }
+
+  > .comments {
+    display: flex;
+    flex-direction: column;
+
+    border-top: 1px solid #111;
+    > h3 {
+      display: flex;
+      align-items: center;
+      margin-top: 5px;
+      margin-left: 15px;
+
+      svg {
+        margin-left: 5px;
+      }
+    }
+
+    // btn to fetch posts
+    > button {
+      align-self: center;
+      border: 1px solid #333;
+      border-radius: 5px;
+      color: #ddd;
+      background-color: #111;
+      margin: 20px 0;
+      font-size: 1.05em;
+      width: 50%;
+      padding: 5px 0;
+    }
+
+    .comment {
+      margin: 5px;
+      margin-left: 15px;
+      border-bottom: 1px solid #222;
+      .date {
+        font-size: 0.9em;
+        color: #ccc;
+        margin-top: -2px;
+      }
+      .votes {
+        display: flex;
+        margin-bottom: 5px;
+        p {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 3px;
+          border: 1px solid #222;
+          border-radius: 5px;
+          svg {
+            margin-right: 5px;
+          }
+        }
+      }
+    }
+  }
+}

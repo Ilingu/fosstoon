@@ -50,7 +50,7 @@ impl CreatorInfo {
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn get_author_info(
     profile_id: String,
     language: Language,

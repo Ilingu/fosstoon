@@ -11,7 +11,7 @@ use crate::{
     episodes::{check_for_new_eps, scrap_episodes_info, EpisodePreview},
     generate_webtoon_url,
     image_dl::download_images,
-    Genre, Schedule, WebtoonId, WtDownloadingInfo, WtType,
+    DownloadState, Genre, Schedule, WebtoonId, WtType,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,11 +49,11 @@ impl WebtoonInfo {
     /// gather all info for the requested webtoon
     ///
     /// **DOES NOT INCLUDE EPISODES** (for that you have to call the WebtoonInfo::fetch_episodes method)
-    pub async fn new_from_id<F: Fn(WtDownloadingInfo) + Clone>(
+    pub async fn new_from_id<F: Fn(DownloadState) + Clone>(
         id: WebtoonId,
         info_cb: F,
     ) -> Result<Self, String> {
-        info_cb(WtDownloadingInfo::WebtoonData(10));
+        info_cb(DownloadState::WebtoonData(10));
 
         let title_selector = Selector::parse(".detail_header .subj").unwrap();
         let thumb_selector = Selector::parse(".detail_header > .thmb > img").unwrap();
@@ -67,12 +67,12 @@ impl WebtoonInfo {
         let url = generate_webtoon_url(id);
         let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
 
-        info_cb(WtDownloadingInfo::WebtoonData(50));
+        info_cb(DownloadState::WebtoonData(50));
 
         let raw_html = resp.text().await.map_err(|e| e.to_string())?;
         let document = Html::parse_document(&raw_html);
 
-        info_cb(WtDownloadingInfo::WebtoonData(80));
+        info_cb(DownloadState::WebtoonData(80));
 
         let title = document
             .select(&title_selector)
@@ -160,7 +160,7 @@ impl WebtoonInfo {
             .trim()
             .to_string();
 
-        info_cb(WtDownloadingInfo::WebtoonData(100));
+        info_cb(DownloadState::WebtoonData(100));
 
         Ok(Self {
             id,
@@ -184,7 +184,7 @@ impl WebtoonInfo {
         })
     }
 
-    pub async fn dl_wt_thumbnail<F: Fn(WtDownloadingInfo) + Clone>(
+    pub async fn dl_wt_thumbnail<F: Fn(DownloadState) + Clone>(
         &mut self,
         thumbnail_path: &Path,
         info_cb: F,
@@ -218,7 +218,7 @@ impl WebtoonInfo {
     }
 
     /// **DOES NOT INCLUDE COMMENTS**
-    pub async fn fetch_episodes<F: Fn(WtDownloadingInfo) + Clone>(
+    pub async fn fetch_episodes<F: Fn(DownloadState) + Clone>(
         &mut self,
         thumbnail_path: &Path,
         info_cb: F,
@@ -231,7 +231,7 @@ impl WebtoonInfo {
     }
 
     /// **DOES NOT INCLUDE COMMENTS**
-    pub async fn update_episodes<F: Fn(WtDownloadingInfo) + Clone>(
+    pub async fn update_episodes<F: Fn(DownloadState) + Clone>(
         &mut self,
         thumbnail_path: &Path,
         info_cb: F,
@@ -250,7 +250,7 @@ impl WebtoonInfo {
     }
 
     /// locally downaload eps thumbnail and set the disk path as the new eps thumb url
-    pub async fn download_episodes_thumbnail<F: Fn(WtDownloadingInfo) + Clone>(
+    pub async fn download_episodes_thumbnail<F: Fn(DownloadState) + Clone>(
         &mut self,
         thumbnail_path: &Path,
         info_cb: F,
@@ -269,7 +269,7 @@ impl WebtoonInfo {
         Ok(())
     }
 
-    pub async fn refresh<F: Fn(WtDownloadingInfo) + Clone>(
+    pub async fn refresh<F: Fn(DownloadState) + Clone>(
         &mut self,
         thumbnail_path: &Path,
         info_cb: F,
