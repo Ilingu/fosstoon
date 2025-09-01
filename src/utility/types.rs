@@ -156,6 +156,12 @@ pub struct EpisodePreview {
     pub ep_url: String,
 }
 
+impl PartialEq for EpisodePreview {
+    fn eq(&self, other: &Self) -> bool {
+        self.parent_wt_id == other.parent_wt_id && self.number == other.number
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Schedule {
     /// Released on a single day of the week
@@ -185,6 +191,20 @@ pub enum Weekday {
     Friday,
     /// Released on Saturday
     Saturday,
+}
+
+impl Weekday {
+    pub fn to_acronym(&self) -> &str {
+        match self {
+            Weekday::Sunday => "Sun",
+            Weekday::Monday => "Mon",
+            Weekday::Tuesday => "Tue",
+            Weekday::Wednesday => "Wed",
+            Weekday::Thursday => "Thu",
+            Weekday::Friday => "Fri",
+            Weekday::Saturday => "Sat",
+        }
+    }
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -231,4 +251,13 @@ pub enum Genre {
     GraphicNovel,
 
     Other(String),
+}
+
+impl Display for Genre {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Other(s) => write!(f, "{s}"),
+            g => write!(f, "{g:?}"),
+        }
+    }
 }

@@ -71,7 +71,7 @@ pub fn Home() -> impl IntoView {
             .get()
             .into_values()
             .collect::<Vec<UserWebtoon>>();
-        uwt.sort_by_key(|uwt| uwt.last_seen);
+        uwt.sort_by_key(|uwt| uwt.last_ep_num_seen);
         uwt.into_iter()
             .map(|uwt| uwt.into())
             .collect::<Vec<WebtoonSearchInfo>>()
@@ -118,7 +118,6 @@ pub fn Home() -> impl IntoView {
                     Ty = Vec<WebtoonSearchInfo>,
                     push_toast
                 );
-                // console_log(&format!("{webtoons:?}"));
                 set_webtoons.set(webtoons);
             });
         }
@@ -242,12 +241,13 @@ pub fn Home() -> impl IntoView {
                     >
                         <For
                             each=move || webtoons.get()
-                            key=|wt| wt.id.wt_id
+                            key=|wt| (wt.id.wt_id, wt.thumbnail.clone())
                             let(wt: WebtoonSearchInfo)
                         >
                             <Webtoon
                                 wt_info=wt.clone()
-                                is_local=app_mode.get() == AppMode::Recommandation
+                                is_local=app_mode.get() == AppMode::My
+                                    || app_mode.get() == AppMode::Recommandation
                             />
                         </For>
                     </Show>

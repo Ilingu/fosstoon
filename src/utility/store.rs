@@ -4,19 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use reactive_stores::Store;
 
-use crate::utility::types::{Language, WebtoonId, WebtoonSearchInfo};
+use crate::utility::types::{Language, WebtoonId, WebtoonInfo, WebtoonSearchInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UserWebtoon {
     pub id: WebtoonId,
     pub title: String,
-    pub thumbnail: Option<String>,
-    pub creator: Option<String>,
-    pub last_seen: Option<usize>,
-    pub episode_seen: HashMap<usize, bool>,
+    pub thumbnail: String,
+    pub creator: String,
+    pub last_ep_num_seen: Option<usize>,
+    pub episode_seen: HashMap<String, bool>,
 }
 
-pub type UserWebtoons = HashMap<usize, UserWebtoon>;
+pub type UserWebtoons = HashMap<String, UserWebtoon>;
 
 impl From<UserWebtoon> for WebtoonSearchInfo {
     fn from(
@@ -31,8 +31,29 @@ impl From<UserWebtoon> for WebtoonSearchInfo {
         WebtoonSearchInfo {
             id,
             title,
-            thumbnail: thumbnail.unwrap_or_default(),
-            creator,
+            thumbnail,
+            creator: Some(creator),
+        }
+    }
+}
+
+impl From<WebtoonInfo> for UserWebtoon {
+    fn from(
+        WebtoonInfo {
+            id,
+            title,
+            thumbnail,
+            creators,
+            ..
+        }: WebtoonInfo,
+    ) -> Self {
+        UserWebtoon {
+            id,
+            title,
+            thumbnail,
+            creator: creators.first().cloned().unwrap_or_default(),
+            last_ep_num_seen: None,
+            episode_seen: HashMap::default(),
         }
     }
 }

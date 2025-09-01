@@ -5,12 +5,13 @@ use std::{
 
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 
 use crate::{
     episodes::{check_for_new_eps, scrap_episodes_info, EpisodePreview},
     generate_webtoon_url,
     image_dl::download_images,
-    Genre, Schedule, WebtoonId, WtDownloadingInfo,
+    Genre, Schedule, WebtoonId, WtDownloadingInfo, WtType,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -65,11 +66,13 @@ impl WebtoonInfo {
 
         let url = generate_webtoon_url(id);
         let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+
         info_cb(WtDownloadingInfo::WebtoonData(50));
 
         let raw_html = resp.text().await.map_err(|e| e.to_string())?;
         let document = Html::parse_document(&raw_html);
-        info_cb(WtDownloadingInfo::WebtoonData(70));
+
+        info_cb(WtDownloadingInfo::WebtoonData(80));
 
         let title = document
             .select(&title_selector)
@@ -118,8 +121,6 @@ impl WebtoonInfo {
                     .collect::<Vec<String>>()
             }
         };
-        info_cb(WtDownloadingInfo::WebtoonData(80));
-
         let schedule = match id.wt_type {
             crate::WtType::Canvas => None,
             crate::WtType::Original => {
@@ -140,7 +141,6 @@ impl WebtoonInfo {
             .select(&genre_selector)
             .map(|g| g.text().collect::<String>().into())
             .collect::<Vec<Genre>>();
-        info_cb(WtDownloadingInfo::WebtoonData(90));
 
         let (views, subs) = match document
             .select(&grade_selector)
@@ -182,6 +182,39 @@ impl WebtoonInfo {
                 .checked_add(Duration::from_secs(864000)) // add 10 days before refresh
                 .ok_or("are we near 2038?")?,
         })
+    }
+
+    pub async fn dl_wt_thumbnail<F: Fn(WtDownloadingInfo) + Clone>(
+        &mut self,
+        thumbnail_path: &Path,
+        info_cb: F,
+    ) -> Result<(), String> {
+        if let WtType::Original = self.id.wt_type
+            && fs::try_exists(thumbnail_path.join(format!("Thumb_Poster_{}.jpg", self.id.wt_id)))
+                .await
+                .unwrap_or_default()
+        {
+            self.thumbnail = thumbnail_path
+                .join(format!("Thumb_Poster_{}.jpg", self.id.wt_id))
+                .to_string_lossy()
+                .to_string();
+            return Ok(());
+        }
+
+        let new_thumb_path = {
+            let dl_thumb_path = download_images(
+                thumbnail_path,
+                vec![self.thumbnail.clone()],
+                info_cb.clone(),
+            )
+            .await?;
+            match dl_thumb_path.as_slice() {
+                [first, ..] => first.to_owned(),
+                _ => return Err("expected one thumb download, found multiple".to_string()),
+            }
+        };
+        self.thumbnail = new_thumb_path;
+        Ok(())
     }
 
     /// **DOES NOT INCLUDE COMMENTS**
@@ -238,9 +271,11 @@ impl WebtoonInfo {
 
     pub async fn refresh<F: Fn(WtDownloadingInfo) + Clone>(
         &mut self,
+        thumbnail_path: &Path,
         info_cb: F,
     ) -> Result<(), String> {
-        *self = WebtoonInfo::new_from_id(self.id, info_cb).await?;
+        *self = WebtoonInfo::new_from_id(self.id, info_cb.clone()).await?;
+        self.dl_wt_thumbnail(thumbnail_path, info_cb).await?;
         Ok(())
     }
 }

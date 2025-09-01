@@ -2,7 +2,6 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use nanorand::{Rng, WyRand};
-use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
@@ -105,7 +104,8 @@ pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<We
         }
         Some(Ok(mut wt)) if wt.expired_at <= SystemTime::now() => {
             // refresh expired webtoon
-            wt.refresh(wt_dl_progress_cb).await?;
+            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+            wt.refresh(&thumb_path, wt_dl_progress_cb).await?;
             wt
         }
         Some(Ok(mut wt)) if wt.refresh_eps_at <= SystemTime::now() => {
@@ -116,17 +116,20 @@ pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<We
         }
         Some(Ok(mut wt)) => {
             // refresh expired webtoon
-            wt.refresh(wt_dl_progress_cb).await?;
+            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+            wt.refresh(&thumb_path, wt_dl_progress_cb).await?;
 
             // get missing eps
-            let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
             wt.update_episodes(&thumb_path, wt_dl_progress_cb).await?;
             wt
         }
         Some(Err(_)) | None => {
             // if not existing or type migration, fetch data
-            let mut webtoon = WebtoonInfo::new_from_id(id, wt_dl_progress_cb).await?;
             let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+            let mut webtoon = WebtoonInfo::new_from_id(id, wt_dl_progress_cb).await?;
+            webtoon
+                .dl_wt_thumbnail(&thumb_path, wt_dl_progress_cb)
+                .await?;
             webtoon
                 .fetch_episodes(&thumb_path, wt_dl_progress_cb)
                 .await?;
@@ -147,6 +150,7 @@ pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<We
 pub async fn get_homepage_recommandations(
     app: tauri::AppHandle,
 ) -> Result<Vec<WebtoonSearchInfo>, String> {
+    return Ok(vec![]);
     let mut canvas = fetch_canvas().await?;
     let original = fetch_original().await?;
 

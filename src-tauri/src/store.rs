@@ -89,7 +89,7 @@ pub async fn change_language(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn subscribe_to_webtoon(
     user_state: tauri::State<'_, Mutex<UserData>>,
     app: tauri::AppHandle,
@@ -125,7 +125,7 @@ pub async fn subscribe_to_webtoon(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn unsubscribe_from_webtoon(
     user_state: tauri::State<'_, Mutex<UserData>>,
     app: tauri::AppHandle,
@@ -135,9 +135,6 @@ pub async fn unsubscribe_from_webtoon(
     let user_store = app
         .store(USER_STORE)
         .map_err(|_| "Failed to open user store")?;
-    let webtoons_store = app
-        .store(WEBTOONS_STORE)
-        .map_err(|_| "Failed to open wt store")?;
     let mut user_data = user_state.lock().await;
 
     // update user_state, user_store and webtoon_store accordingly
@@ -147,7 +144,6 @@ pub async fn unsubscribe_from_webtoon(
         serde_json::to_value(&user_data.webtoons)
             .map_err(|_| "Couldn't serialize user new webtoons")?,
     );
-    webtoons_store.delete(webtoon_id.wt_id.to_string());
 
     Ok(())
 }
