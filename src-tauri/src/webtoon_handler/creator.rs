@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use webtoon::platform::webtoons::{self, Language};
-use webtoon_sdk::webtoon::WebtoonSearchInfo;
+use webtoon_sdk::search::WebtoonSearchInfo;
 
 use crate::webtoon_handler::webtoon::FromWebtoon;
 

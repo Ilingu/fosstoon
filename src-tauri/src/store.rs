@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::Deref};
+use std::{collections::HashMap, ops::Deref, time::SystemTime};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use webtoon::platform::webtoons::Language;
@@ -15,7 +15,7 @@ pub struct UserWebtoon {
     pub title: String,
     pub thumbnail: String,
     pub creator: String,
-    pub last_ep_num_seen: Option<usize>,
+    pub last_seen: Option<SystemTime>,
     pub episode_seen: HashMap<usize, bool>,
 }
 
@@ -44,7 +44,7 @@ impl From<WebtoonInfo> for UserWebtoon {
             title,
             thumbnail,
             creator: creators.first().cloned().unwrap_or_default(),
-            last_ep_num_seen: None,
+            last_seen: None,
             episode_seen: HashMap::default(),
         }
     }
@@ -103,7 +103,7 @@ pub async fn mark_as_read(
     let mut user_data = user_state.lock().await;
     user_data.webtoons.entry(wt_id.wt_id).and_modify(|wt| {
         wt.episode_seen.insert(ep_num, true);
-        wt.last_ep_num_seen = Some(ep_num);
+        wt.last_seen = Some(SystemTime::now());
     });
 
     user_store.set(

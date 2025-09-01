@@ -1,7 +1,7 @@
 use nanorand::{Rng, WyRand};
 use scraper::{Html, Selector};
 
-use crate::{webtoon::WebtoonSearchInfo, WebtoonId, WtType};
+use crate::{search::WebtoonSearchInfo, WebtoonId, WtType};
 
 pub async fn fetch_original() -> Result<Vec<WebtoonSearchInfo>, String> {
     let resp = reqwest::get("https://www.webtoons.com/en/originals")

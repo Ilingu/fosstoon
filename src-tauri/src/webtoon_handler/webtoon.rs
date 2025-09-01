@@ -4,16 +4,16 @@ use async_trait::async_trait;
 use nanorand::{Rng, WyRand};
 use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
-use tokio::sync::Mutex;
-use webtoon::platform::webtoons::{self, Webtoon};
+use webtoon::platform::webtoons::Webtoon;
 use webtoon_sdk::{
     image_dl::download_images,
     recommandations::{fetch_canvas, fetch_original},
-    webtoon::{WebtoonInfo, WebtoonSearchInfo},
+    search::WebtoonSearchInfo,
+    webtoon::WebtoonInfo,
     DownloadState, WebtoonId, WtType,
 };
 
-use crate::{constants::WEBTOONS_STORE, store::UserData, webtoon_handler::FromWtType};
+use crate::{constants::WEBTOONS_STORE, webtoon_handler::FromWtType};
 /* Implementations */
 
 #[async_trait]
@@ -54,32 +54,26 @@ impl FromWebtoon for WebtoonSearchInfo {
 
 #[tauri::command]
 pub async fn search_webtoon(
-    user_state: tauri::State<'_, Mutex<UserData>>,
+    app: tauri::AppHandle,
     query: &str,
 ) -> Result<Vec<WebtoonSearchInfo>, String> {
-    let user_langage = user_state.lock().await.language;
+    let mut search_result = WebtoonSearchInfo::from_query(query).await?;
 
-    let client = webtoons::Client::new();
-    let search_result = client
-        .search(query, user_langage)
-        .await
-        .map_err(|err| err.to_string())?;
-
-    let mut webtoon_found = vec![];
-    for webtoon in search_result {
-        webtoon_found.push(WebtoonSearchInfo {
-            id: WebtoonId::new(
-                webtoon.id() as usize,
-                WtType::from_wt_type(webtoon.r#type()),
-            ),
-
-            title: webtoon.title().to_string(),
-            thumbnail: webtoon.thumbnail().to_string(),
-            creator: Some(webtoon.creator().to_string()),
-        });
+    let cache_thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let new_thumb_path = download_images(
+        &cache_thumb_path,
+        search_result
+            .iter()
+            .map(|wt| wt.thumbnail.clone())
+            .collect(),
+        |_| {},
+    )
+    .await?;
+    for (wt, new_path) in search_result.iter_mut().zip(new_thumb_path) {
+        wt.thumbnail = new_path
     }
 
-    Ok(webtoon_found)
+    Ok(search_result)
 }
 
 #[tauri::command]

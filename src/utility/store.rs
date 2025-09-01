@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ pub struct UserWebtoon {
     pub title: String,
     pub thumbnail: String,
     pub creator: String,
-    pub last_ep_num_seen: Option<usize>,
+    pub last_seen: Option<SystemTime>,
     pub episode_seen: HashMap<String, bool>,
 }
 
@@ -52,7 +52,7 @@ impl From<WebtoonInfo> for UserWebtoon {
             title,
             thumbnail,
             creator: creators.first().cloned().unwrap_or_default(),
-            last_ep_num_seen: None,
+            last_seen: None,
             episode_seen: HashMap::default(),
         }
     }

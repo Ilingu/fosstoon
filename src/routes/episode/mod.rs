@@ -1,4 +1,4 @@
-use std::ops::Not;
+use std::{ops::Not, time::SystemTime};
 
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::Style;
@@ -127,7 +127,7 @@ pub fn EpisodePage() -> impl IntoView {
             user_state.update(|us| {
                 us.webtoons.entry(wt_id.wt_id.to_string()).and_modify(|wt| {
                     wt.episode_seen.insert((current_ep - 1).to_string(), true);
-                    wt.last_ep_num_seen = Some(current_ep - 1);
+                    wt.last_seen = Some(SystemTime::now());
                 });
             });
         });

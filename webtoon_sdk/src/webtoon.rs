@@ -14,17 +14,6 @@ use crate::{
     DownloadState, Genre, Schedule, WebtoonId, WtType,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WebtoonSearchInfo {
-    pub id: WebtoonId,
-    pub title: String,
-    /// url
-    pub thumbnail: String,
-
-    /// option because depending on whether it's an orignal or not the data can't be scrapped easily
-    pub creator: Option<String>,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WebtoonInfo {
     pub id: WebtoonId,

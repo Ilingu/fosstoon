@@ -2,6 +2,7 @@
 pub mod episodes;
 pub mod image_dl;
 pub mod recommandations;
+pub mod search;
 pub mod webtoon;
 
 use serde::{Deserialize, Serialize};
