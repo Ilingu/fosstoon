@@ -1,10 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[tokio::main]
-async fn main() -> Result<(), String> {
-    fosstoon_lib::run()?;
-    Ok(())
+fn main() {
+    fosstoon_lib::run();
 }
 
 /* App dataflow design (-> = request)

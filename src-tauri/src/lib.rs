@@ -23,7 +23,7 @@ use tokio::sync::Mutex;
 use webtoon::platform::webtoons::Language;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() -> Result<(), String> {
+pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -67,6 +67,5 @@ pub fn run() -> Result<(), String> {
             fetch_wt_imgs
         ])
         .run(tauri::generate_context!())
-        .map_err(|_| "Failed to launch tauri app")?;
-    Ok(())
+        .expect("Failed to launch tauri app");
 }

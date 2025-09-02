@@ -4,3 +4,6 @@
 *.css.map
 *.css
 /requests.http
+/upload-keystore.jks
+/src-tauri/gen/android/keystore.properties
+/fosstoon_log.txt
