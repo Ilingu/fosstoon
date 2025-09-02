@@ -59,7 +59,7 @@ macro_rules! parse_or_navigate {
     };
 }
 
-const IS_ANDROID: bool = false;
+const IS_ANDROID: bool = true;
 /*
 #[cfg(any(windows, target_os = "android"))]
 let base = ;
