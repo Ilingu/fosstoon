@@ -32,9 +32,13 @@ Because the client operates outside the official wƩbt∞n ecosystem, certain fe
 
 <a href="https://ilingu.github.io/fdroid/repo/"><img src="./demos/get-it-on-fdroid.png" width="256" /></a>
 
+> the fdroid version is **only available** for `aarch64` devices, because I was too selfish to build it for all architecture
+>
+> (apk size and build time - for those in the know)
+
 #### or install it manually:
 
-> [Tauri prerequisites](https://tauri.app/start/prerequisites/) then [Build APK](https://tauri.app/distribute/google-play/#build-apks)
+> [Tauri prerequisites](https://tauri.app/start/prerequisites/) then [Build](https://tauri.app/distribute/google-play/#build-apks) and [Sign APK](https://tauri.app/distribute/sign/android/)
 
 ## Made with
 
