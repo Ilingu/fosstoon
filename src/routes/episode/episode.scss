@@ -1,4 +1,10 @@
 #episode_page {
+  .nav_back {
+    svg {
+      color: rgba(0, 0, 0, 0.4);
+    }
+  }
+
   overflow-x: hidden;
   #panels {
     > img {

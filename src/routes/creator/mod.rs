@@ -5,6 +5,9 @@ use leptos_router::{
     params::Params,
 };
 
+use icondata as i;
+use leptos_icons::Icon;
+
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -101,6 +104,11 @@ pub fn CreatorPage() -> impl IntoView {
             }
         >
             <div id="creator_page">
+                <div class="nav_back">
+                    <a href="/">
+                        <Icon icon=i::IoCaretBackOutline />
+                    </a>
+                </div>
                 <h1 class="author_name">{move || creator_data.get().unwrap().name}</h1>
                 <p class="followers">
                     {move || creator_data.get().unwrap().followers.unwrap_or_default()} " followers"

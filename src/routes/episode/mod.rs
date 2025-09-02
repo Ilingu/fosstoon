@@ -67,6 +67,7 @@ pub fn EpisodePage() -> impl IntoView {
     let (episode_data, set_episode_data) = signal(None::<EpisodeData>);
     let (ep_comments, set_ep_comments) = signal(None::<Vec<Post>>);
     let (dl_state, set_dl_state) = signal(DownloadState::Idle);
+    let (see_back_btn, set_see_back_btn) = signal(false);
 
     /* Handlers */
     let fetch_ep_data = move |wt_id: WebtoonId, ep_num: usize| {
@@ -199,7 +200,30 @@ pub fn EpisodePage() -> impl IntoView {
             fallback=move || view! { <WaitingScreen dl_state /> }
         >
             <div id="episode_page">
-                <div id="panels">
+                <div class=move || {
+                    format!(
+                        "nav_back {}",
+                        match see_back_btn.get() {
+                            true => "show",
+                            false => "hide",
+                        },
+                    )
+                }>
+                    <a href=move || match episode_data.get() {
+                        Some(ep_data) => {
+                            format!(
+                                "/webtoon?wt_id={}&wt_type={}",
+                                ep_data.parent_wt_id.wt_id,
+                                ep_data.parent_wt_id.wt_type,
+                            )
+                        }
+                        None => "/".to_string(),
+                    }>
+
+                        <Icon icon=i::IoCaretBackOutline />
+                    </a>
+                </div>
+                <div id="panels" on:click=move |_| set_see_back_btn.update(|sbb| *sbb = sbb.not())>
                     <For
                         each=move || episode_data.get().unwrap().panels
                         key=|panel| panel.to_owned()

@@ -21,13 +21,20 @@ impl EpisodePreview {
     fn from_html_element(parent_id: WebtoonId, element: &ElementRef<'_>) -> Result<Self, String> {
         let ep_url_selector = Selector::parse("a").unwrap();
         let date_selector = Selector::parse(".date").unwrap();
+        let ep_num_selector = Selector::parse(".tx").unwrap();
         let title_selector = Selector::parse(".subj > span").unwrap();
         let thumb_selector = Selector::parse(".thmb > img").unwrap();
         let likes_selector = Selector::parse(".like_area").unwrap();
 
         let ep_num = element
-            .attr("data-episode-no")
-            .ok_or("No episode number found")?
+            .select(&ep_num_selector)
+            .next()
+            .ok_or("No ep num")?
+            .text()
+            .collect::<String>()
+            .trim()
+            .trim_start_matches("#")
+            .to_string()
             .parse::<usize>()
             .map_err(|e| e.to_string())?;
 
