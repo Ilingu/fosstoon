@@ -2,6 +2,7 @@ use std::path::Path;
 
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 
 use crate::{generate_webtoon_url, image_dl::download_images, DownloadState, WebtoonId};
 
@@ -207,17 +208,35 @@ impl EpisodeData {
         cache_dir: &Path,
         info_cb: F,
     ) -> Result<(), String> {
+        // download panels
         let panels_path = download_images(cache_dir, self.panels.clone(), info_cb.clone()).await?;
         self.panels = panels_path;
 
-        let author_thumb_path =
-            match download_images(cache_dir, vec![self.author_thumb.clone()], info_cb)
-                .await?
-                .as_slice()
-            {
-                [first] => first.to_owned(),
-                _ => return Err("Failed to download author thumbnail".to_string()),
-            };
+        // download author thumbnail and make the filename unique
+        let author_thumb_path = {
+            let dl_auth_thumb_path =
+                match download_images(cache_dir, vec![self.author_thumb.clone()], info_cb)
+                    .await?
+                    .as_slice()
+                {
+                    [first] => first.to_owned(),
+                    _ => return Err("Failed to download author thumbnail".to_string()),
+                };
+
+            let mut path_decomposed = dl_auth_thumb_path.split("/").collect::<Vec<_>>();
+
+            let author_thumb_filename = format!(
+                "author_thumb_{}_{}.jpg",
+                self.parent_wt_id.wt_id, self.author_name
+            );
+            *path_decomposed.last_mut().ok_or("No filename")? = author_thumb_filename.as_str();
+            let new_path = path_decomposed.join("/");
+
+            fs::rename(dl_auth_thumb_path, &new_path)
+                .await
+                .map_err(|e| e.to_string())?;
+            new_path
+        };
         self.author_thumb = author_thumb_path;
 
         Ok(())
@@ -252,13 +271,15 @@ impl EpisodePreview {
         let author_note = document
             .select(&note_selector)
             .next()
-            .map(|e| e.text().collect::<String>());
+            .map(|e| e.text().collect::<String>().trim().to_string());
         let author_name = document
             .select(&name_selector)
             .next()
             .ok_or("No author name")?
             .text()
-            .collect::<String>();
+            .collect::<String>()
+            .trim()
+            .to_string();
         let author_id = match document
             .select(&name_selector)
             .next()
@@ -274,7 +295,6 @@ impl EpisodePreview {
             Some(Err(e)) => return Err(e),
             None => None,
         };
-
         let author_thumb = document
             .select(&thumb_selector)
             .next()

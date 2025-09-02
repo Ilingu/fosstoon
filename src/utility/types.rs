@@ -55,8 +55,8 @@ impl DownloadState {
     pub fn get_state(&self) -> String {
         match self {
             Self::WebtoonData(_) => "Fetching webtoon informations...",
-            Self::EpisodeInfo(_) => "Fecthing episodes informations...",
-            Self::CachingImages(_) => "Downloading images (thumbail|panels: may take a while)...",
+            Self::EpisodeInfo(_) => "Fetching episodes informations...",
+            Self::CachingImages(_) => "Downloading images (thumbnail|panels: may take a while)...",
             Self::Idle => "Currently not doing anything",
             Self::Completed => "Finished to download webtoon",
         }

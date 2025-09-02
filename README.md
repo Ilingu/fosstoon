@@ -38,11 +38,11 @@ Because the client operates outside the official wƩbt∞n ecosystem, certain fe
 
 #### or install it manually:
 
-> [Tauri prerequisites](https://tauri.app/start/prerequisites/) then [Build](https://tauri.app/distribute/google-play/#build-apks) and [Sign APK](https://tauri.app/distribute/sign/android/)
+> [Tauri prerequisites](https://tauri.app/start/prerequisites/) then [Build APK](https://tauri.app/distribute/google-play/#build-apks) and [Sign APK](https://tauri.app/distribute/sign/android/)
 
 ## Made with
 
-- Elegance ans skills ✨
+- Elegance and skills ✨
 - Rust 🦀
 - Tauri 🚀
 - leptos 🏆
