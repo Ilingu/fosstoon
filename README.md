@@ -40,6 +40,11 @@ Because the client operates outside the official wƩbt∞n ecosystem, certain fe
 
 > [Tauri prerequisites](https://tauri.app/start/prerequisites/) then [Build APK](https://tauri.app/distribute/google-play/#build-apks) and [Sign APK](https://tauri.app/distribute/sign/android/)
 
+## Known Bug
+
+Sometime when navigating, you should stumble upon a "currently not doing anything" infinite loading spinner or equivalent to that. The only way to leave this state is to restart the app.
+The problem is that I don't know what causes it. The only thing that I know is that it happens after an user triggered invoke to the backend (like "mark_as_read" btn or when watching multiples episodes successively and wanting to go back), otherwise it works as intended... I tested several fix but none worked, so I think it's something that is specific to wasm/tauri or leptos
+
 ## Made with
 
 - Elegance and skills ✨
