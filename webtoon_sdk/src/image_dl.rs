@@ -9,6 +9,7 @@ use crate::DownloadState;
 pub async fn download_images<F: Fn(DownloadState) + Clone>(
     cache_dir: &Path,
     images_url: Vec<String>,
+    uid: String,
     info_cb: F,
 ) -> Result<Vec<String>, String> {
     info_cb(DownloadState::CachingImages(0));
@@ -24,7 +25,10 @@ pub async fn download_images<F: Fn(DownloadState) + Clone>(
                 .split("?")
                 .next()
                 .expect("Impossible no filename");
-            cache_dir.join(filename).to_string_lossy().to_string()
+            cache_dir
+                .join(format!("{uid}-{filename}"))
+                .to_string_lossy()
+                .to_string()
         })
         .collect::<Vec<String>>();
 

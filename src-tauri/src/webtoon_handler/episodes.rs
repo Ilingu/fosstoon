@@ -109,7 +109,7 @@ pub async fn get_episode_data(
     app: tauri::AppHandle,
     wt_id: WebtoonId,
     ep_num: usize,
-) -> Result<EpisodeData, String> {
+) -> Result<(EpisodeData, bool), String> {
     if ep_num == 0 {
         return Err("episode number cannot be 0".to_string());
     }
@@ -127,12 +127,13 @@ pub async fn get_episode_data(
         .map(serde_json::from_value::<WebtoonInfo>)
         .ok_or("No webtoon found in store")?
         .map_err(|e| e.to_string())?;
-    let episode = webtoon
-        .episodes
-        .ok_or("No episode found in store")?
+    let episodes = webtoon.episodes.ok_or("No episode found in store")?;
+
+    let episode = episodes
         .get(ep_num - 1)
         .cloned()
         .ok_or("Requested episode not found in store")?;
+    let has_next_ep = ep_num != episodes.len();
 
     let mut ep_data = episode.get_episode_data(dl_progress_cb).await?;
 
@@ -140,5 +141,5 @@ pub async fn get_episode_data(
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
     ep_data.dl_panels(&cache_dir, dl_progress_cb).await?;
 
-    Ok(ep_data)
+    Ok((ep_data, has_next_ep))
 }

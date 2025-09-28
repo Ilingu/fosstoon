@@ -212,6 +212,7 @@ impl WebtoonInfo {
             let dl_thumb_path = download_images(
                 thumbnail_path,
                 vec![self.thumbnail.clone()],
+                self.id.wt_id.to_string(),
                 info_cb.clone(),
             )
             .await?;
@@ -266,6 +267,7 @@ impl WebtoonInfo {
             let new_thumbnails_url = download_images(
                 thumbnail_path,
                 eps.iter().map(|e| e.thumbnail.clone()).collect(),
+                self.id.wt_id.to_string(),
                 info_cb,
             )
             .await?;

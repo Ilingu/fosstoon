@@ -1,8 +1,12 @@
-use std::{ops::Not, time::SystemTime};
+use std::{
+    ops::Not,
+    time::{Duration, SystemTime},
+};
 
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::Style;
 use leptos_router::{
+    components::A,
     hooks::{use_navigate, use_params, use_query},
     params::Params,
 };
@@ -10,7 +14,6 @@ use leptos_router::{
 use icondata as i;
 use leptos_icons::Icon;
 
-use reactive_stores::Store;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -52,7 +55,7 @@ struct EpisodeParams {
 }
 
 #[component]
-pub fn EpisodePage() -> impl IntoView {
+pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
     /* url params */
     let params_args = use_params::<EpisodeParams>();
     let query_args = use_query::<WebtoonQueryArgs>();
@@ -62,14 +65,38 @@ pub fn EpisodePage() -> impl IntoView {
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
 
     /* states */
-    let user_state = expect_context::<Store<UserData>>();
-
-    let (episode_data, set_episode_data) = signal(None::<EpisodeData>);
+    let (episode_data, set_episode_data) = signal(None::<(EpisodeData, bool)>);
     let (ep_comments, set_ep_comments) = signal(None::<Vec<Post>>);
     let (dl_state, set_dl_state) = signal(DownloadState::Idle);
     let (see_back_btn, set_see_back_btn) = signal(false);
 
     /* Handlers */
+    let fetch_post = move || {
+        if let Some(ep_data) = episode_data.get_untracked() {
+            push_toast.run(Alert::new(
+                "Posts are loading, it may take a while",
+                AlertLevel::Info,
+                None,
+            ));
+            spawn_local(async move {
+                let posts = parse_or_toast!(
+                    invoke(
+                        "get_episode_post",
+                        serde_wasm_bindgen::to_value(&EpIdArgs {
+                            wt_id: ep_data.0.parent_wt_id,
+                            ep_num: ep_data.0.number
+                        })
+                        .unwrap()
+                    )
+                    .await,
+                    Ty = Vec<Post>,
+                    push_toast
+                );
+                set_ep_comments.set(Some(posts));
+            });
+        }
+    };
+
     let fetch_ep_data = move |wt_id: WebtoonId, ep_num: usize| {
         let navigate = use_navigate();
         spawn_local(async move {
@@ -94,12 +121,13 @@ pub fn EpisodePage() -> impl IntoView {
                     serde_wasm_bindgen::to_value(&EpIdArgs { wt_id, ep_num }).unwrap()
                 )
                 .await,
-                Ty = EpisodeData,
+                Ty = (EpisodeData, bool),
                 push_toast,
                 navigate,
                 &format!("/webtoon?wt_id={}&wt_type={}", wt_id.wt_id, wt_id.wt_type)
             );
             set_episode_data.set(Some(ep_data));
+            fetch_post();
 
             // close data gathering
             closure.forget();
@@ -134,32 +162,6 @@ pub fn EpisodePage() -> impl IntoView {
         });
     };
 
-    let fetch_post = move |_| {
-        if let Some(ep_data) = episode_data.get_untracked() {
-            push_toast.run(Alert::new(
-                "Posts are loading, it may take a while",
-                AlertLevel::Info,
-                None,
-            ));
-            spawn_local(async move {
-                let posts = parse_or_toast!(
-                    invoke(
-                        "get_episode_post",
-                        serde_wasm_bindgen::to_value(&EpIdArgs {
-                            wt_id: ep_data.parent_wt_id,
-                            ep_num: ep_data.number
-                        })
-                        .unwrap()
-                    )
-                    .await,
-                    Ty = Vec<Post>,
-                    push_toast
-                );
-                set_ep_comments.set(Some(posts));
-            });
-        }
-    };
-
     /* Effects */
     Effect::new(move |_| {
         let navigate = use_navigate();
@@ -177,10 +179,10 @@ pub fn EpisodePage() -> impl IntoView {
                 set_ep_comments.set(None);
 
                 let webtoon_id = WebtoonId::new(wt_id, wt_type);
-                fetch_ep_data(webtoon_id, ep_num);
                 if prev_ep_read.unwrap_or_default() {
                     mark_prev_ep_as_read(webtoon_id, ep_num);
                 }
+                fetch_ep_data(webtoon_id, ep_num);
             }
             _ => {
                 push_toast.run(Alert::new(
@@ -209,23 +211,23 @@ pub fn EpisodePage() -> impl IntoView {
                         },
                     )
                 }>
-                    <a href=move || match episode_data.get() {
+                    <A href=move || match episode_data.get() {
                         Some(ep_data) => {
                             format!(
                                 "/webtoon?wt_id={}&wt_type={}",
-                                ep_data.parent_wt_id.wt_id,
-                                ep_data.parent_wt_id.wt_type,
+                                ep_data.0.parent_wt_id.wt_id,
+                                ep_data.0.parent_wt_id.wt_type,
                             )
                         }
                         None => "/".to_string(),
                     }>
 
                         <Icon icon=i::IoCaretBackOutline />
-                    </a>
+                    </A>
                 </div>
                 <div id="panels" on:click=move |_| set_see_back_btn.update(|sbb| *sbb = sbb.not())>
                     <For
-                        each=move || episode_data.get().unwrap().panels
+                        each=move || episode_data.get().unwrap().0.panels
                         key=|panel| panel.to_owned()
                         let(panel_url)
                     >
@@ -234,18 +236,20 @@ pub fn EpisodePage() -> impl IntoView {
                 </div>
                 <div class="author_info">
                     <img
-                        src=move || convert_file_src(&episode_data.get().unwrap().author_thumb)
+                        src=move || convert_file_src(
+                            &episode_data.get().unwrap().0.author_thumb.unwrap_or_default(),
+                        )
                         alt="Author thumbnail"
                     />
                     <div>
-                        {move || match episode_data.get().unwrap().author_id {
+                        {move || match episode_data.get().unwrap().0.author_id {
                             Some(aid) => {
                                 view! {
                                     <a
                                         class="author_name"
                                         href=move || { format!("/creator/{aid}") }
                                     >
-                                        {move || episode_data.get().unwrap().author_name}
+                                        {move || episode_data.get().unwrap().0.author_name}
                                     </a>
                                 }
                                     .into_any()
@@ -253,31 +257,65 @@ pub fn EpisodePage() -> impl IntoView {
                             None => {
                                 view! {
                                     <p class="author_name">
-                                        {move || episode_data.get().unwrap().author_name}
+                                        {move || episode_data.get().unwrap().0.author_name}
                                     </p>
                                 }
                                     .into_any()
                             }
                         }}
-                        <p class="author_note">{move || episode_data.get().unwrap().author_note}</p>
+                        <p class="author_note">
+                            {move || episode_data.get().unwrap().0.author_note}
+                        </p>
                     </div>
                 </div>
                 <div class="action">
-                    <a href=move || {
-                        let ep_data = episode_data.get().unwrap();
-                        format!(
-                            "/webtoon/episode/{}?wt_id={}&wt_type={}&prev_ep_read=true",
-                            ep_data.number + 1,
-                            ep_data.parent_wt_id.wt_id,
-                            ep_data.parent_wt_id.wt_type,
-                        )
-                    }>
-                        <div>
-                            <p>"Next episode: "</p>
-                            <p>"Episode " {move || episode_data.get().unwrap().number + 1}</p>
-                        </div>
-                        <Icon icon=i::AiCaretRightOutlined />
-                    </a>
+                    <Show
+                        when=move || episode_data.get().unwrap().1
+                        fallback=move || {
+                            view! {
+                                <a
+                                    href="javascript:void(0)"
+                                    on:click=move |_| {
+                                        let ep_data = episode_data.get().unwrap().0;
+                                        mark_prev_ep_as_read(
+                                            ep_data.parent_wt_id,
+                                            ep_data.number + 1,
+                                        );
+                                        push_toast
+                                            .run(
+                                                Alert::new(
+                                                    "Marked as read successfully",
+                                                    AlertLevel::Success,
+                                                    Some(Duration::from_secs(1)),
+                                                ),
+                                            );
+                                    }
+                                >
+                                    <div>
+                                        <p>""</p>
+                                        <p>"No episode remaining 🥲 Click to mark as read"</p>
+                                    </div>
+                                </a>
+                            }
+                        }
+                    >
+                        <A href=move || {
+                            let ep_data = episode_data.get().unwrap().0;
+                            format!(
+                                "/webtoon/episode/{}?wt_id={}&wt_type={}&prev_ep_read=true",
+                                ep_data.number + 1,
+                                ep_data.parent_wt_id.wt_id,
+                                ep_data.parent_wt_id.wt_type,
+                            )
+                        }>
+                            <div>
+                                <p>"Next episode: "</p>
+                                <p>"Episode " {move || episode_data.get().unwrap().0.number + 1}</p>
+                            </div>
+                            <Icon icon=i::AiCaretRightOutlined />
+                        </A>
+                    </Show>
+
                 </div>
                 <div class="comments">
                     <h3>"Top Comments" <Icon icon=i::BiCommentDetailRegular /></h3>
@@ -285,7 +323,9 @@ pub fn EpisodePage() -> impl IntoView {
                     <Show
                         when=move || ep_comments.get().is_some()
                         fallback=move || {
-                            view! { <button on:click=fetch_post>"Click to fetch"</button> }
+                            view! {
+                                <button on:click=move |_| fetch_post()>"Click to fetch"</button>
+                            }
                         }
                     >
                         <For

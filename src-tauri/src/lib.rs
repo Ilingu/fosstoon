@@ -1,11 +1,9 @@
 mod constants;
-mod image_handler;
 mod store;
 mod webtoon_handler;
 
 use crate::{
     constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY},
-    image_handler::fetch_wt_imgs,
     store::{
         change_language, get_user_data, mark_as_read, subscribe_to_webtoon,
         unsubscribe_from_webtoon, UserData, UserWebtoons,
@@ -63,8 +61,6 @@ pub fn run() {
             force_refresh_episodes,
             // author
             get_author_info,
-            // images
-            fetch_wt_imgs
         ])
         .run(tauri::generate_context!())
         .expect("Failed to launch tauri app");

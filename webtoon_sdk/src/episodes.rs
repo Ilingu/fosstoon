@@ -2,7 +2,6 @@ use std::path::Path;
 
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
-use tokio::fs;
 
 use crate::{generate_webtoon_url, image_dl::download_images, DownloadState, WebtoonId};
 
@@ -199,7 +198,7 @@ pub struct EpisodeData {
     pub author_note: Option<String>,
     pub author_name: String,
     pub author_id: Option<String>,
-    pub author_thumb: String,
+    pub author_thumb: Option<String>,
 }
 
 impl EpisodeData {
@@ -209,35 +208,31 @@ impl EpisodeData {
         info_cb: F,
     ) -> Result<(), String> {
         // download panels
-        let panels_path = download_images(cache_dir, self.panels.clone(), info_cb.clone()).await?;
+        let panels_path = download_images(
+            cache_dir,
+            self.panels.clone(),
+            self.parent_wt_id.wt_id.to_string(),
+            info_cb.clone(),
+        )
+        .await?;
         self.panels = panels_path;
 
         // download author thumbnail and make the filename unique
-        let author_thumb_path = {
-            let dl_auth_thumb_path =
-                match download_images(cache_dir, vec![self.author_thumb.clone()], info_cb)
-                    .await?
-                    .as_slice()
-                {
-                    [first] => first.to_owned(),
-                    _ => return Err("Failed to download author thumbnail".to_string()),
-                };
-
-            let mut path_decomposed = dl_auth_thumb_path.split("/").collect::<Vec<_>>();
-
-            let author_thumb_filename = format!(
-                "author_thumb_{}_{}.jpg",
-                self.parent_wt_id.wt_id, self.author_name
-            );
-            *path_decomposed.last_mut().ok_or("No filename")? = author_thumb_filename.as_str();
-            let new_path = path_decomposed.join("/");
-
-            fs::rename(dl_auth_thumb_path, &new_path)
-                .await
-                .map_err(|e| e.to_string())?;
-            new_path
-        };
-        self.author_thumb = author_thumb_path;
+        if let Some(author_thumb) = self.author_thumb.clone() {
+            let author_thumb_path = match download_images(
+                cache_dir,
+                vec![author_thumb],
+                self.parent_wt_id.wt_id.to_string(),
+                info_cb,
+            )
+            .await?
+            .as_slice()
+            {
+                [first] => first.to_owned(),
+                _ => return Err("Failed to download author thumbnail".to_string()),
+            };
+            self.author_thumb = Some(author_thumb_path);
+        }
 
         Ok(())
     }
@@ -283,7 +278,7 @@ impl EpisodePreview {
         let author_id = match document
             .select(&name_selector)
             .next()
-            .ok_or("No author name")?
+            .ok_or("No author id")?
             .attr("href")
             .map(|href| {
                 href.split("/")
@@ -295,13 +290,12 @@ impl EpisodePreview {
             Some(Err(e)) => return Err(e),
             None => None,
         };
-        let author_thumb = document
-            .select(&thumb_selector)
-            .next()
-            .ok_or("No author thumb")?
-            .attr("src")
-            .ok_or("No author thumb src")?
-            .to_string();
+        let author_thumb = document.select(&thumb_selector).next().and_then(|e| {
+            e.attr("src")
+                .ok_or("No author thumb src")
+                .map(|at| at.to_string())
+                .ok()
+        });
 
         info_cb(DownloadState::EpisodeInfo(100));
 

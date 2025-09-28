@@ -203,7 +203,7 @@ pub struct EpisodeData {
     pub author_note: Option<String>,
     pub author_name: String,
     pub author_id: Option<String>,
-    pub author_thumb: String,
+    pub author_thumb: Option<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

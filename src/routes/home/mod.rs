@@ -8,16 +8,12 @@ use leptos_meta::Style;
 use icondata as i;
 use leptos_icons::Icon;
 
-use reactive_stores::Store;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::components::webtoon::{StandaloneWebtoon, Webtoon};
 use crate::parse_or_toast;
-use crate::utility::store::{
-    LoadingState, UserData, UserDataStoreFields, UserRecommendations,
-    UserRecommendationsStoreFields, UserWebtoon,
-};
+use crate::utility::store::{LoadingState, UserData, UserRecommendations, UserWebtoon};
 use crate::utility::types::{Alert, AlertLevel, WebtoonId, WebtoonSearchInfo};
 
 #[wasm_bindgen]
@@ -58,17 +54,18 @@ impl Display for AppMode {
 }
 
 #[component]
-pub fn Home() -> impl IntoView {
+pub fn Home(
+    user_state: RwSignal<UserData>,
+    user_rec_state: ReadSignal<UserRecommendations>,
+) -> impl IntoView {
     /* Global state */
-    let user_state = expect_context::<Store<UserData>>();
-    let user_rec_state = expect_context::<Store<UserRecommendations>>();
     let push_toast =
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
 
     let user_webtoons = Memo::new(move |_| {
         let mut uwt = user_state
-            .webtoons()
             .get()
+            .webtoons
             .into_values()
             .collect::<Vec<UserWebtoon>>();
         uwt.sort_by(|uwta, uwtb| uwtb.last_seen.cmp(&uwta.last_seen));
@@ -83,7 +80,7 @@ pub fn Home() -> impl IntoView {
 
     /* handlers */
     let load_user_wt = move || {
-        if user_state.loading_state().get_untracked() == LoadingState::Completed
+        if user_state.get_untracked().loading_state == LoadingState::Completed
             && app_mode.get_untracked() == AppMode::My
         {
             set_webtoons.set(user_webtoons.get_untracked());
@@ -91,10 +88,10 @@ pub fn Home() -> impl IntoView {
     };
 
     let load_user_rec = move || {
-        if user_rec_state.loading_state().get_untracked() == LoadingState::Completed
+        if user_rec_state.get_untracked().loading_state == LoadingState::Completed
             && app_mode.get_untracked() == AppMode::Recommandation
         {
-            let recommendations = user_rec_state.webtoons().get_untracked();
+            let recommendations = user_rec_state.get_untracked().webtoons;
             set_webtoons.set(recommendations);
         }
     };
@@ -124,7 +121,7 @@ pub fn Home() -> impl IntoView {
     };
 
     /* Effects */
-    Effect::new(move |_| match user_state.loading_state().get() {
+    Effect::new(move |_| match user_state.get().loading_state {
         LoadingState::Loading => (),
         LoadingState::Completed => load_user_wt(),
         LoadingState::Error(e) => {
@@ -133,7 +130,7 @@ pub fn Home() -> impl IntoView {
         }
     });
 
-    Effect::new(move |_| match user_rec_state.loading_state().get() {
+    Effect::new(move |_| match user_rec_state.get().loading_state {
         LoadingState::Loading => (),
         LoadingState::Completed => {
             push_toast.run(Alert::new(
@@ -219,9 +216,9 @@ pub fn Home() -> impl IntoView {
                     when=move || {
                         !webtoons.get().is_empty()
                             || (app_mode.get() == AppMode::My
-                                && user_state.loading_state().get() == LoadingState::Completed)
+                                && user_state.get().loading_state == LoadingState::Completed)
                             || (app_mode.get() == AppMode::Recommandation
-                                && user_rec_state.loading_state().get() == LoadingState::Completed)
+                                && user_rec_state.get().loading_state == LoadingState::Completed)
                     }
                     fallback=|| {
                         view! {

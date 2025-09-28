@@ -66,6 +66,7 @@ pub async fn search_webtoon(
             .iter()
             .map(|wt| wt.thumbnail.clone())
             .collect(),
+        "search_webtoon".to_string(),
         |_| {},
     )
     .await?;
@@ -157,6 +158,7 @@ pub async fn get_homepage_recommandations(
     let new_thumb_path = download_images(
         &cache_thumb_path,
         merged.iter().map(|wt| wt.thumbnail.clone()).collect(),
+        "homepage_recommandations".to_string(),
         |_| {},
     )
     .await?;
