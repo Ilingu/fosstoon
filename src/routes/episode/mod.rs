@@ -6,10 +6,10 @@ use std::{
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::Style;
 use leptos_router::{
-    components::A,
     hooks::{use_navigate, use_params, use_query},
     params::Params,
 };
+use reactive_stores::Store;
 
 use icondata as i;
 use leptos_icons::Icon;
@@ -55,7 +55,7 @@ struct EpisodeParams {
 }
 
 #[component]
-pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
+pub fn EpisodePage() -> impl IntoView {
     /* url params */
     let params_args = use_params::<EpisodeParams>();
     let query_args = use_query::<WebtoonQueryArgs>();
@@ -65,6 +65,8 @@ pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
 
     /* states */
+    let user_state = expect_context::<Store<UserData>>();
+
     let (episode_data, set_episode_data) = signal(None::<(EpisodeData, bool)>);
     let (ep_comments, set_ep_comments) = signal(None::<Vec<Post>>);
     let (dl_state, set_dl_state) = signal(DownloadState::Idle);
@@ -156,7 +158,15 @@ pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
             user_state.update(|us| {
                 us.webtoons.entry(wt_id.wt_id.to_string()).and_modify(|wt| {
                     wt.episode_seen.insert((current_ep - 1).to_string(), true);
-                    wt.last_seen = Some(SystemTime::now());
+                    // BECAREFUL! This could be summarized as `SystemTime::now()` but
+                    // because of the bad implementation of SystemTime in leptos+tauri as of now
+                    // it breaks the app in a weird way (impossible to navigate in the app after this function call).
+                    // Thus I made this workaround using JS stdlib and it works just fine.
+                    // Thus DO NOT touch this code
+                    wt.last_seen = Some(
+                        SystemTime::UNIX_EPOCH
+                            + Duration::from_millis(js_sys::Date::now().floor() as u64),
+                    );
                 });
             });
         });
@@ -211,19 +221,9 @@ pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
                         },
                     )
                 }>
-                    <A href=move || match episode_data.get() {
-                        Some(ep_data) => {
-                            format!(
-                                "/webtoon?wt_id={}&wt_type={}",
-                                ep_data.0.parent_wt_id.wt_id,
-                                ep_data.0.parent_wt_id.wt_type,
-                            )
-                        }
-                        None => "/".to_string(),
-                    }>
-
+                    <a href="/">
                         <Icon icon=i::IoCaretBackOutline />
-                    </A>
+                    </a>
                 </div>
                 <div id="panels" on:click=move |_| set_see_back_btn.update(|sbb| *sbb = sbb.not())>
                     <For
@@ -299,7 +299,7 @@ pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
                             }
                         }
                     >
-                        <A href=move || {
+                        <a href=move || {
                             let ep_data = episode_data.get().unwrap().0;
                             format!(
                                 "/webtoon/episode/{}?wt_id={}&wt_type={}&prev_ep_read=true",
@@ -313,7 +313,7 @@ pub fn EpisodePage(user_state: RwSignal<UserData>) -> impl IntoView {
                                 <p>"Episode " {move || episode_data.get().unwrap().0.number + 1}</p>
                             </div>
                             <Icon icon=i::AiCaretRightOutlined />
-                        </A>
+                        </a>
                     </Show>
 
                 </div>

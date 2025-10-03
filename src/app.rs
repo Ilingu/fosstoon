@@ -6,6 +6,7 @@ use crate::{
         types::{Alert, WebtoonSearchInfo},
     },
 };
+use reactive_stores::Store;
 
 use leptos::prelude::*;
 use leptos_router::{
@@ -24,9 +25,11 @@ extern "C" {
 #[component]
 pub fn App() -> impl IntoView {
     /* App store */
-    let user_state = RwSignal::new(UserData::default());
-    let (user_rec_state, set_user_rec_state) = signal(UserRecommendations::default());
+    let user_state = Store::new(UserData::default());
+    provide_context(user_state);
 
+    let user_rec_state = Store::new(UserRecommendations::default());
+    provide_context(user_rec_state);
     // fetch ressources
     let user_data_resp = LocalResource::new(move || invoke_without_args("get_user_data"));
 
@@ -85,7 +88,7 @@ pub fn App() -> impl IntoView {
             },
         };
 
-        set_user_rec_state.set(user_rec);
+        user_rec_state.set(user_rec);
     });
 
     /* Alert system */
@@ -107,12 +110,9 @@ pub fn App() -> impl IntoView {
     view! {
         <Router>
             <Routes fallback=|| "Not found.">
-                <Route path=path!("/") view=move || view! { <Home user_state user_rec_state /> } />
-                <Route path=path!("/webtoon") view=move || view! { <WebtoonPage user_state /> } />
-                <Route
-                    path=path!("/webtoon/episode/:num")
-                    view=move || view! { <EpisodePage user_state /> }
-                />
+                <Route path=path!("/") view=Home />
+                <Route path=path!("/webtoon") view=WebtoonPage />
+                <Route path=path!("/webtoon/episode/:num") view=EpisodePage />
                 <Route path=path!("/creator/:id") view=CreatorPage />
             </Routes>
 

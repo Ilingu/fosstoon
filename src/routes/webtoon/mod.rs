@@ -4,10 +4,10 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_meta::Style;
 use leptos_router::{
-    components::A,
     hooks::{use_navigate, use_query},
     params::Params,
 };
+use reactive_stores::Store;
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -17,7 +17,7 @@ use leptos_icons::Icon;
 
 use crate::components::waiting_screen::WaitingScreen;
 use crate::utility::convert_file_src;
-use crate::utility::store::{LoadingState, UserData};
+use crate::utility::store::{LoadingState, UserData, UserDataStoreFields};
 use crate::utility::types::{
     Alert, AlertLevel, DownloadState, EpisodePreview, Schedule, WebtoonId, WebtoonInfo, WtType,
 };
@@ -55,7 +55,7 @@ enum EpOrder {
 }
 
 #[component]
-pub fn WebtoonPage(user_state: RwSignal<UserData>) -> impl IntoView {
+pub fn WebtoonPage() -> impl IntoView {
     /* query */
     let raw_wt_query_args = use_query::<WebtoonQueryArgs>();
 
@@ -64,6 +64,8 @@ pub fn WebtoonPage(user_state: RwSignal<UserData>) -> impl IntoView {
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
 
     /* states */
+    let user_state = expect_context::<Store<UserData>>();
+
     let (webtoon_info, set_wt_info) = signal(None::<WebtoonInfo>);
     let (dl_state, set_dl_state) = signal(DownloadState::Idle);
     let (ep_order, set_ep_order) = signal(EpOrder::Latest);
@@ -73,8 +75,8 @@ pub fn WebtoonPage(user_state: RwSignal<UserData>) -> impl IntoView {
             .get()
             .map(|wt: WebtoonInfo| {
                 user_state
+                    .webtoons()
                     .get()
-                    .webtoons
                     .contains_key(&wt.id.wt_id.to_string())
             })
             .unwrap_or_default()
@@ -258,16 +260,16 @@ pub fn WebtoonPage(user_state: RwSignal<UserData>) -> impl IntoView {
         >
             <div id="webtoon_page">
                 <header>
-                    <A href="/">
+                    <a href="/">
                         <Icon icon=i::IoCaretBackOutline />
-                    </A>
+                    </a>
                     <button on:click=force_ep_reload>
                         <Icon icon=i::MdiReload />
                     </button>
                     <button on:click=toggle_sub>
                         <Show
                             when=move || {
-                                user_state.get().loading_state == LoadingState::Completed
+                                user_state.loading_state().get() == LoadingState::Completed
                                     && is_subscribed.get()
                             }
                             fallback=move || view! { <Icon icon=i::BiBookmarkAltPlusSolid /> }
@@ -297,9 +299,9 @@ pub fn WebtoonPage(user_state: RwSignal<UserData>) -> impl IntoView {
                             .map(|(i, c)| match webtoon_info.get().unwrap().creator_id {
                                 Some(aid) => {
                                     view! {
-                                        <A href=format!(
+                                        <a href=format!(
                                             "/creator/{aid}",
-                                        )>{move || if i > 0 { " | " } else { "" }} {c}</A>
+                                        )>{move || if i > 0 { " | " } else { "" }} {c}</a>
                                     }
                                         .into_any()
                                 }
@@ -368,8 +370,8 @@ pub fn WebtoonPage(user_state: RwSignal<UserData>) -> impl IntoView {
                                     seen=match (webtoon_info.get(), is_subscribed.get()) {
                                         (Some(wt), true) => {
                                             user_state
+                                                .webtoons()
                                                 .get()
-                                                .webtoons
                                                 .get(&wt.id.wt_id.to_string())
                                                 .unwrap()
                                                 .episode_seen

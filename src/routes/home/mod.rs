@@ -4,6 +4,7 @@ use std::time::Duration;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_meta::Style;
+use reactive_stores::Store;
 
 use icondata as i;
 use leptos_icons::Icon;
@@ -13,7 +14,10 @@ use wasm_bindgen::prelude::*;
 
 use crate::components::webtoon::{StandaloneWebtoon, Webtoon};
 use crate::parse_or_toast;
-use crate::utility::store::{LoadingState, UserData, UserRecommendations, UserWebtoon};
+use crate::utility::store::{
+    LoadingState, UserData, UserDataStoreFields, UserRecommendations,
+    UserRecommendationsStoreFields, UserWebtoon,
+};
 use crate::utility::types::{Alert, AlertLevel, WebtoonId, WebtoonSearchInfo};
 
 #[wasm_bindgen]
@@ -54,18 +58,17 @@ impl Display for AppMode {
 }
 
 #[component]
-pub fn Home(
-    user_state: RwSignal<UserData>,
-    user_rec_state: ReadSignal<UserRecommendations>,
-) -> impl IntoView {
+pub fn Home() -> impl IntoView {
     /* Global state */
+    let user_state = expect_context::<Store<UserData>>();
+    let user_rec_state = expect_context::<Store<UserRecommendations>>();
     let push_toast =
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
 
     let user_webtoons = Memo::new(move |_| {
         let mut uwt = user_state
+            .webtoons()
             .get()
-            .webtoons
             .into_values()
             .collect::<Vec<UserWebtoon>>();
         uwt.sort_by(|uwta, uwtb| uwtb.last_seen.cmp(&uwta.last_seen));
@@ -80,7 +83,7 @@ pub fn Home(
 
     /* handlers */
     let load_user_wt = move || {
-        if user_state.get_untracked().loading_state == LoadingState::Completed
+        if user_state.loading_state().get_untracked() == LoadingState::Completed
             && app_mode.get_untracked() == AppMode::My
         {
             set_webtoons.set(user_webtoons.get_untracked());
@@ -88,10 +91,10 @@ pub fn Home(
     };
 
     let load_user_rec = move || {
-        if user_rec_state.get_untracked().loading_state == LoadingState::Completed
+        if user_rec_state.loading_state().get_untracked() == LoadingState::Completed
             && app_mode.get_untracked() == AppMode::Recommandation
         {
-            let recommendations = user_rec_state.get_untracked().webtoons;
+            let recommendations = user_rec_state.webtoons().get_untracked();
             set_webtoons.set(recommendations);
         }
     };
@@ -121,7 +124,7 @@ pub fn Home(
     };
 
     /* Effects */
-    Effect::new(move |_| match user_state.get().loading_state {
+    Effect::new(move |_| match user_state.loading_state().get() {
         LoadingState::Loading => (),
         LoadingState::Completed => load_user_wt(),
         LoadingState::Error(e) => {
@@ -130,7 +133,7 @@ pub fn Home(
         }
     });
 
-    Effect::new(move |_| match user_rec_state.get().loading_state {
+    Effect::new(move |_| match user_rec_state.loading_state().get() {
         LoadingState::Loading => (),
         LoadingState::Completed => {
             push_toast.run(Alert::new(
@@ -169,13 +172,11 @@ pub fn Home(
             }
 
             let timeout_handle =
-                set_timeout_with_handle(search_webtoons, Duration::from_millis(1500))
+                set_timeout_with_handle(search_webtoons, Duration::from_millis(500))
                     .expect("No timeout");
             search_timeout.set_value(Some(timeout_handle));
         }
     });
-
-    // <img src=move || convert_file_src("/data/user/0/com.ilingu.fosstoon/cache/17525413646832751_S2ChasersEp13-05_003.jpg") />
 
     view! {
         <Style>{include_str!("home.css")}</Style>
@@ -216,9 +217,9 @@ pub fn Home(
                     when=move || {
                         !webtoons.get().is_empty()
                             || (app_mode.get() == AppMode::My
-                                && user_state.get().loading_state == LoadingState::Completed)
+                                && user_state.loading_state().get() == LoadingState::Completed)
                             || (app_mode.get() == AppMode::Recommandation
-                                && user_rec_state.get().loading_state == LoadingState::Completed)
+                                && user_rec_state.loading_state().get() == LoadingState::Completed)
                     }
                     fallback=|| {
                         view! {

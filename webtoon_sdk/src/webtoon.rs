@@ -235,6 +235,11 @@ impl WebtoonInfo {
         self.download_episodes_thumbnail(thumbnail_path, info_cb)
             .await?;
 
+        // reset expire date
+        self.refresh_eps_at = SystemTime::now()
+            .checked_add(Duration::from_secs(86400)) // add 1 days before refresh
+            .ok_or("are we near 2038?")?;
+
         Ok(())
     }
 
@@ -249,10 +254,15 @@ impl WebtoonInfo {
                 check_for_new_eps(self.id, episodes.len(), info_cb.clone()).await?;
             episodes.append(&mut new_ep_since_last);
             self.download_episodes_thumbnail(thumbnail_path, info_cb)
-                .await?
+                .await?;
         } else {
-            self.fetch_episodes(thumbnail_path, info_cb).await?
+            self.fetch_episodes(thumbnail_path, info_cb).await?;
         }
+
+        // reset expire date
+        self.refresh_eps_at = SystemTime::now()
+            .checked_add(Duration::from_secs(86400)) // add 1 days before refresh
+            .ok_or("are we near 2038?")?;
 
         Ok(())
     }

@@ -5,11 +5,18 @@ use tokio::fs;
 
 use crate::DownloadState;
 
-// todo: reverif que ca marche
+fn to_unique_filename(filename: &str, fuid: &str) -> String {
+    const PREFIX: &str = "fosstoon_unique_id__";
+    match filename.starts_with(PREFIX) {
+        true => filename.to_owned(),
+        false => format!("{PREFIX}{fuid}__{filename}"),
+    }
+}
+
 pub async fn download_images<F: Fn(DownloadState) + Clone>(
     cache_dir: &Path,
     images_url: Vec<String>,
-    uid: String,
+    fuid: String,
     info_cb: F,
 ) -> Result<Vec<String>, String> {
     info_cb(DownloadState::CachingImages(0));
@@ -26,7 +33,7 @@ pub async fn download_images<F: Fn(DownloadState) + Clone>(
                 .next()
                 .expect("Impossible no filename");
             cache_dir
-                .join(format!("{uid}-{filename}"))
+                .join(to_unique_filename(filename, &fuid))
                 .to_string_lossy()
                 .to_string()
         })

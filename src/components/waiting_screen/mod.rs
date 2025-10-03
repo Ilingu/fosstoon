@@ -3,7 +3,6 @@ use leptos_meta::Style;
 
 use icondata as i;
 use leptos_icons::Icon;
-use leptos_router::components::A;
 
 use crate::{components::spinner::Spinner, utility::types::DownloadState};
 
@@ -13,9 +12,9 @@ pub fn WaitingScreen(dl_state: ReadSignal<DownloadState>) -> impl IntoView {
         <Style>{include_str!("waiting_screen.css")}</Style>
         <div class="loading_screen">
             <div class="nav_back">
-                <A href="/">
+                <a href="/">
                     <Icon icon=i::IoCaretBackOutline />
-                </A>
+                </a>
             </div>
             <Spinner />
             <progress max="100" value=move || dl_state.get().get_progress() />

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, time::SystemTime};
 
+use reactive_stores::Store;
 use serde::{Deserialize, Serialize};
 
 use crate::utility::types::{Language, WebtoonId, WebtoonInfo, WebtoonSearchInfo};
@@ -64,7 +65,7 @@ pub enum LoadingState {
     Error(String),
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Store, Deserialize)]
 pub struct UserData {
     #[allow(dead_code)]
     pub language: Language,
@@ -74,7 +75,7 @@ pub struct UserData {
     pub loading_state: LoadingState,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Store, Deserialize)]
 pub struct UserRecommendations {
     pub webtoons: Vec<WebtoonSearchInfo>,
 
