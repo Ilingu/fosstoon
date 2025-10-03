@@ -221,7 +221,16 @@ pub fn EpisodePage() -> impl IntoView {
                         },
                     )
                 }>
-                    <a href="/">
+                    <a href=move || match episode_data.get() {
+                        Some(ep_data) => {
+                            format!(
+                                "/webtoon?wt_id={}&wt_type={}",
+                                ep_data.0.parent_wt_id.wt_id,
+                                ep_data.0.parent_wt_id.wt_type,
+                            )
+                        }
+                        None => "/".to_string(),
+                    }>
                         <Icon icon=i::IoCaretBackOutline />
                     </a>
                 </div>
