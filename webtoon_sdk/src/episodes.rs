@@ -211,7 +211,7 @@ impl EpisodeData {
         let panels_path = download_images(
             cache_dir,
             self.panels.clone(),
-            self.parent_wt_id.wt_id.to_string(),
+            format!("{}_ep{}", self.parent_wt_id.wt_id, self.number),
             info_cb.clone(),
         )
         .await?;
