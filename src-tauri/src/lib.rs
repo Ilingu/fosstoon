@@ -11,7 +11,10 @@ use crate::{
     webtoon_handler::{
         creator::get_author_info,
         episodes::{force_refresh_episodes, get_episode_data, get_episode_post},
-        webtoon::{get_homepage_recommandations, get_webtoon_info, search_webtoon},
+        webtoon::{
+            delete_episodes, delete_webtoon, get_homepage_recommandations, get_webtoon_info,
+            search_webtoon,
+        },
     },
 };
 
@@ -55,6 +58,8 @@ pub fn run() {
             search_webtoon,
             get_webtoon_info,
             get_homepage_recommandations,
+            delete_episodes,
+            delete_webtoon,
             // episodes
             get_episode_post,
             get_episode_data,

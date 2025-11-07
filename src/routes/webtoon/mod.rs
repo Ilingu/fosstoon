@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -38,6 +38,12 @@ struct FetchWtInfoArgs {
 }
 
 #[derive(Serialize, Deserialize)]
+struct DeleteEpsArgs {
+    id: WebtoonId,
+    eps2delete: Vec<usize>,
+}
+
+#[derive(Serialize, Deserialize)]
 struct SubWtInfoArgs {
     webtoon_id: WebtoonId,
 }
@@ -69,6 +75,9 @@ pub fn WebtoonPage() -> impl IntoView {
     let (webtoon_info, set_wt_info) = signal(None::<WebtoonInfo>);
     let (dl_state, set_dl_state) = signal(DownloadState::Idle);
     let (ep_order, set_ep_order) = signal(EpOrder::Latest);
+
+    let (delete_mode, set_delete_mode) = signal(false);
+    let eps2delete = RwSignal::new(HashSet::<usize>::new());
 
     let is_subscribed = Memo::new(move |_| {
         webtoon_info
@@ -212,6 +221,71 @@ pub fn WebtoonPage() -> impl IntoView {
             });
         }
     };
+    let delete_webtoon = move |_| {
+        if let Some(wt) = webtoon_info.get_untracked() {
+            spawn_local(async move {
+                parse_or_toast!(
+                    invoke(
+                        "unsubscribe_from_webtoon",
+                        serde_wasm_bindgen::to_value(&SubWtInfoArgs { webtoon_id: wt.id }).unwrap()
+                    )
+                    .await,
+                    Ty = (),
+                    push_toast
+                );
+                parse_or_toast!(
+                    invoke(
+                        "delete_webtoon",
+                        serde_wasm_bindgen::to_value(&FetchWtInfoArgs { id: wt.id }).unwrap()
+                    )
+                    .await,
+                    Ty = (),
+                    push_toast
+                );
+                user_state.update(|state| {
+                    state.webtoons.remove(&wt.id.wt_id.to_string());
+                });
+                set_wt_info.set(None);
+                push_toast.run(Alert::new(
+                    "Webtoon deleted successfully - please return to home",
+                    AlertLevel::Success,
+                    Some(Duration::from_secs(4)),
+                ));
+            });
+        }
+    };
+    let handle_ep_delete = move |_| {
+        let eps2d = eps2delete.get_untracked().into_iter().collect::<Vec<_>>();
+        match (
+            delete_mode.get_untracked(),
+            webtoon_info.get_untracked(),
+            eps2d.is_empty(),
+        ) {
+            (true, Some(wt), false) => {
+                spawn_local(async move {
+                    // delete webtoon episodes
+                    let wt_wo_deleted_eps = parse_or_toast!(
+                        invoke(
+                            "delete_episodes",
+                            serde_wasm_bindgen::to_value(&DeleteEpsArgs {
+                                id: wt.id,
+                                eps2delete: eps2d
+                            })
+                            .unwrap()
+                        )
+                        .await,
+                        Ty = WebtoonInfo,
+                        push_toast
+                    );
+                    set_wt_info.set(Some(wt_wo_deleted_eps));
+                    set_delete_mode.set(false);
+                    eps2delete.set(HashSet::new());
+                });
+            }
+            (true, _, _) => set_delete_mode.set(false),
+            (false, _, _) => set_delete_mode.set(true),
+        }
+    };
 
     /* Effects */
     Effect::new(move |_| {
@@ -263,20 +337,26 @@ pub fn WebtoonPage() -> impl IntoView {
                     <a href="/">
                         <Icon icon=i::IoCaretBackOutline />
                     </a>
-                    <button on:click=force_ep_reload>
-                        <Icon icon=i::MdiReload />
-                    </button>
-                    <button on:click=toggle_sub>
-                        <Show
-                            when=move || {
-                                user_state.loading_state().get() == LoadingState::Completed
-                                    && is_subscribed.get()
-                            }
-                            fallback=move || view! { <Icon icon=i::BiBookmarkAltPlusSolid /> }
-                        >
-                            <Icon icon=i::BiBookmarkAltMinusSolid />
-                        </Show>
-                    </button>
+                    <div>
+                        <button on:click=force_ep_reload>
+                            <Icon icon=i::MdiReload />
+                        </button>
+                        <button on:click=delete_webtoon>
+                            <Icon icon=i::BiTrashAltRegular />
+                        </button>
+                        <button on:click=toggle_sub>
+                            <Show
+                                when=move || {
+                                    user_state.loading_state().get() == LoadingState::Completed
+                                        && is_subscribed.get()
+                                }
+                                fallback=move || view! { <Icon icon=i::BiBookmarkAltPlusSolid /> }
+                            >
+                                <Icon icon=i::BiBookmarkAltMinusSolid />
+                            </Show>
+                        </button>
+                    </div>
+
                 </header>
                 <div id="wt_info">
                     <img
@@ -343,22 +423,31 @@ pub fn WebtoonPage() -> impl IntoView {
                                 <p class="ep_count">
                                     {move || episodes.get().unwrap().len()} " episodes"
                                 </p>
-                                <button on:click=toggle_ep_order>
-                                    {move || match ep_order.get() {
-                                        EpOrder::Latest => {
-                                            view! {
-                                                <Icon icon=i::MdiSortNumericDescending />
-                                                "latest"
+                                <div>
+                                    <button on:click=handle_ep_delete>
+                                        {move || match delete_mode.get() {
+                                            true => view! { <Icon icon=i::BiCheckRegular /> },
+                                            false => view! { <Icon icon=i::BiEditAltRegular /> },
+                                        }}
+                                    </button>
+                                    <button on:click=toggle_ep_order>
+                                        {move || match ep_order.get() {
+                                            EpOrder::Latest => {
+                                                view! {
+                                                    <Icon icon=i::MdiSortNumericDescending />
+                                                    "latest"
+                                                }
                                             }
-                                        }
-                                        EpOrder::Oldest => {
-                                            view! {
-                                                <Icon icon=i::MdiSortNumericAscending />
-                                                "oldest"
+                                            EpOrder::Oldest => {
+                                                view! {
+                                                    <Icon icon=i::MdiSortNumericAscending />
+                                                    "oldest"
+                                                }
                                             }
-                                        }
-                                    }}
-                                </button>
+                                        }}
+                                    </button>
+                                </div>
+
                             </header>
 
                             <For
@@ -379,6 +468,8 @@ pub fn WebtoonPage() -> impl IntoView {
                                         }
                                         _ => false,
                                     }
+                                    delete_mode
+                                    eps2delete
                                     episode
                                 />
 
@@ -392,9 +483,29 @@ pub fn WebtoonPage() -> impl IntoView {
 }
 
 #[component]
-fn Episode(episode: EpisodePreview, seen: bool) -> impl IntoView {
+fn Episode(
+    episode: EpisodePreview,
+    eps2delete: RwSignal<HashSet<usize>>,
+    delete_mode: ReadSignal<bool>,
+    seen: bool,
+) -> impl IntoView {
+    let toggle_mark2delete = move || match eps2delete.get_untracked().contains(&episode.number) {
+        true => eps2delete.update(|ep2d| {
+            ep2d.remove(&episode.number);
+        }),
+        false => eps2delete.update(|ep2d| {
+            ep2d.insert(episode.number);
+        }),
+    };
+
     view! {
         <a
+            on:click=move |e| {
+                if delete_mode.get() {
+                    e.prevent_default();
+                    toggle_mark2delete();
+                }
+            }
             href=move || {
                 format!(
                     "/webtoon/episode/{}?wt_id={}&wt_type={}",
@@ -405,6 +516,15 @@ fn Episode(episode: EpisodePreview, seen: bool) -> impl IntoView {
             }
             class=format!("episode {}", if seen { "active" } else { "" })
         >
+            <Show when=move || delete_mode.get()>
+                <input
+                    type="checkbox"
+                    class="ep2deletebtn"
+                    on:click=move |e| e.stop_propagation()
+                    prop:checked=move || eps2delete.get().contains(&episode.number)
+                    on:change=move |_| toggle_mark2delete()
+                />
+            </Show>
             <img src=move || convert_file_src(&episode.thumbnail) alt="Episode thumbnail" />
             <div class="ep_info">
                 <p class="ep_title">{move || format!("#{} - {}", episode.number, episode.title)}</p>

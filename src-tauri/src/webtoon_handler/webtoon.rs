@@ -78,6 +78,50 @@ pub async fn search_webtoon(
 }
 
 #[tauri::command]
+pub async fn delete_episodes(
+    app: tauri::AppHandle,
+    id: WebtoonId,
+    eps2delete: Vec<usize>,
+) -> Result<WebtoonInfo, String> {
+    let webtoons_store = app
+        .store(WEBTOONS_STORE)
+        .map_err(|_| "Failed to open wt store")?;
+
+    let mut webtoon = webtoons_store
+        .get(id.wt_id.to_string())
+        .map(serde_json::from_value::<WebtoonInfo>)
+        .ok_or("Webtoon is not found")?
+        .map_err(|e| e.to_string())?;
+
+    let episodes = webtoon.episodes.ok_or("No episodes found")?;
+    let filtered_eps = episodes
+        .into_iter()
+        .filter(|ep| !eps2delete.contains(&ep.number))
+        .collect::<Vec<_>>();
+
+    webtoon.episodes = Some(filtered_eps);
+
+    // set updated/new webtoon to storage
+    webtoons_store.set(
+        id.wt_id.to_string(),
+        serde_json::to_value(&webtoon).map_err(|_| "Couldn't serialize webtoon_info")?,
+    );
+    Ok(webtoon)
+}
+
+#[tauri::command]
+pub async fn delete_webtoon(app: tauri::AppHandle, id: WebtoonId) -> Result<(), String> {
+    let webtoons_store = app
+        .store(WEBTOONS_STORE)
+        .map_err(|_| "Failed to open wt store")?;
+
+    match webtoons_store.delete(id.wt_id.to_string()) {
+        true => Ok(()),
+        false => Err("Failed to delete webtoon from the store".to_string()),
+    }
+}
+
+#[tauri::command]
 pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<WebtoonInfo, String> {
     let wt_dl_progress_cb = |news: DownloadState| {
         let _ = app.emit("wt_dl_channel", news);
@@ -97,13 +141,17 @@ pub async fn get_webtoon_info(app: tauri::AppHandle, id: WebtoonId) -> Result<We
         {
             return Ok(wt); // no need to re-write the same value to the store
         }
-        Some(Ok(mut wt)) if wt.expired_at <= SystemTime::now() => {
+        Some(Ok(mut wt))
+            if wt.expired_at <= SystemTime::now() && wt.refresh_eps_at > SystemTime::now() =>
+        {
             // refresh expired webtoon
             let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
             wt.refresh(&thumb_path, wt_dl_progress_cb).await?;
             wt
         }
-        Some(Ok(mut wt)) if wt.refresh_eps_at <= SystemTime::now() => {
+        Some(Ok(mut wt))
+            if wt.refresh_eps_at <= SystemTime::now() && wt.expired_at > SystemTime::now() =>
+        {
             // get missing eps
             let thumb_path = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
             wt.update_episodes(&thumb_path, wt_dl_progress_cb).await?;
