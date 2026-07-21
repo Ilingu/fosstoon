@@ -1,4 +1,5 @@
 // only implements episode scrapping, as it seem the only problem with the "webtoon" crate
+pub mod creator;
 pub mod episodes;
 pub mod image_dl;
 pub mod recommandations;

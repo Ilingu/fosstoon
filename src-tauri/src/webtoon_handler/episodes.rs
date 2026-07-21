@@ -1,68 +1,17 @@
 use std::time::{Duration, SystemTime};
 
-use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
-use webtoon::platform::webtoons::{self};
-use webtoon_sdk::{episodes::EpisodeData, webtoon::WebtoonInfo, DownloadState, WebtoonId};
+use webtoon_sdk::{
+    episodes::{
+        comments::{Post, PostExtension},
+        EpisodeData,
+    },
+    webtoon::WebtoonInfo,
+    DownloadState, WebtoonId,
+};
 
-use crate::{constants::WEBTOONS_STORE, webtoon_handler::FromWtType};
-
-/// for the app simplicity sake, no replies will be fetch in this app
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Post {
-    pub wt_id: WebtoonId,
-    pub ep_num: usize,
-
-    pub id: String,
-    pub content: String,
-    pub is_spoiler: bool,
-    pub upvotes: u32,
-    pub downvotes: u32,
-    pub posted_at: u64,
-    pub poster_name: String,
-}
-
-pub trait PostExtension {
-    async fn fetch_posts(wt_id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String>;
-}
-
-impl PostExtension for EpisodeData {
-    async fn fetch_posts(wt_id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String> {
-        let wtclient = webtoons::Client::new();
-
-        let webtoon = wtclient
-            .webtoon(wt_id.wt_id as u32, wt_id.wt_type.to_local_type())
-            .await
-            .map_err(|err| err.to_string())?
-            .ok_or("Webtoon not found")?;
-        let episode = webtoon
-            .episode(ep_num as u16)
-            .await
-            .map_err(|err| err.to_string())?
-            .ok_or("Episode not found")?;
-
-        let top_posts: Vec<Post> = episode
-            .posts()
-            .await
-            .map_err(|err| err.to_string())?
-            .filter(|p| p.is_top() && p.is_comment())
-            .map(|p| Post {
-                wt_id,
-                ep_num,
-                id: p.id().to_string(),
-                content: p.body().contents().to_string(),
-                is_spoiler: p.body().is_spoiler(),
-                upvotes: p.upvotes(),
-                downvotes: p.downvotes(),
-                posted_at: p.posted() as u64,
-                poster_name: p.poster().username().to_string(),
-            })
-            .collect();
-
-        Ok(top_posts)
-    }
-}
+use crate::constants::WEBTOONS_STORE;
 
 /* Commands */
 

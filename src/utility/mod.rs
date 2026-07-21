@@ -44,6 +44,7 @@ macro_rules! parse_or_navigate {
             .map(|v| {
                 serde_wasm_bindgen::from_value::<$ty>(v)
                     .map_err(|_| "Failed to parse data as the right struct".to_string())
+                // .map_err(|e| e.to_string())
             })
             .map_err(|e| {
                 e.as_string().unwrap_or(
@@ -59,7 +60,7 @@ macro_rules! parse_or_navigate {
     };
 }
 
-const IS_ANDROID: bool = true;
+const IS_ANDROID: bool = false;
 /*
 #[cfg(any(windows, target_os = "android"))]
 let base = ;

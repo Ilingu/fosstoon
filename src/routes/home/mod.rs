@@ -18,7 +18,7 @@ use crate::utility::store::{
     LoadingState, UserData, UserDataStoreFields, UserRecommendations,
     UserRecommendationsStoreFields, UserWebtoon,
 };
-use crate::utility::types::{Alert, AlertLevel, WebtoonId, WebtoonSearchInfo};
+use crate::utility::types::{Alert, AlertLevel, WebtoonSearchInfo};
 
 #[wasm_bindgen]
 extern "C" {
@@ -29,11 +29,6 @@ extern "C" {
 #[derive(Serialize, Deserialize)]
 struct SearchWtArgs<'a> {
     query: &'a str,
-}
-
-#[derive(Serialize, Deserialize)]
-struct FetchWtInfoArgs {
-    id: WebtoonId,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,7 +66,7 @@ pub fn Home() -> impl IntoView {
             .get()
             .into_values()
             .collect::<Vec<UserWebtoon>>();
-        uwt.sort_by(|uwta, uwtb| uwtb.last_seen.cmp(&uwta.last_seen));
+        uwt.sort_by_key(|uwtb| std::cmp::Reverse(uwtb.last_seen));
         uwt.into_iter()
             .map(|uwt| uwt.into())
             .collect::<Vec<WebtoonSearchInfo>>()

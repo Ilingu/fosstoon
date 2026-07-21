@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::{
-    episodes::{check_for_new_eps, scrap_episodes_info, EpisodePreview},
+    DownloadState, Genre, Schedule, WebtoonId, WtType,
+    episodes::{EpisodePreview, check_for_new_eps, scrap_episodes_info},
     generate_webtoon_url,
     image_dl::download_images,
-    DownloadState, Genre, Schedule, WebtoonId, WtType,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

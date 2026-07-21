@@ -223,12 +223,25 @@ pub struct Post {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct CreatorInfo {
-    #[allow(dead_code)]
-    pub profile_id: String,
+#[allow(dead_code)]
+pub struct WtCreator {
+    /// author's alias ID
+    pub aid: String,
+    /// true author ID
+    pub taid: String,
     pub name: String,
-    pub followers: Option<u32>,
+    pub bio: Option<String>,
+    pub followers: usize,
     pub webtoons: Vec<WebtoonSearchInfo>,
+    pub posts: Vec<CreatorPost>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[allow(dead_code)]
+pub struct CreatorPost {
+    pub body: String,
+    pub created_at: u64,
+    pub img_url: Option<String>,
 }
 
 /* HELPERS TYPES */

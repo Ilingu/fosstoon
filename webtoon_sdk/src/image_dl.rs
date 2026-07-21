@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 use tokio::fs;
 
 use crate::DownloadState;
@@ -68,9 +68,9 @@ pub async fn download_images<F: Fn(DownloadState) + Clone>(
     let http_client = reqwest::Client::new();
     let raw_images_data = {
         let futures = images_url_to_cache.iter().enumerate().map(|(i, iurl)| {
-            let value = http_client.clone();
+            let client = http_client.clone();
             async move {
-                let resp = value
+                let resp = client
                     .get(iurl)
                     .header("Referer", "https://www.webtoons.com/")
                     .send()

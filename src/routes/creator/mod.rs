@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     components::{waiting_screen::WaitingScreen, webtoon::Webtoon},
     parse_or_navigate,
-    utility::types::{Alert, AlertLevel, CreatorInfo, DownloadState, Language, WebtoonSearchInfo},
+    utility::types::{Alert, AlertLevel, DownloadState, WebtoonSearchInfo, WtCreator},
 };
 
 #[wasm_bindgen]
@@ -31,7 +31,6 @@ struct CreatorParams {
 #[derive(Serialize)]
 struct FetchCreatorArgs {
     profile_id: String,
-    language: Language,
 }
 
 #[component]
@@ -44,7 +43,7 @@ pub fn CreatorPage() -> impl IntoView {
         use_context::<Callback<Alert>>().expect("expected a 'set_alerts' context provided");
 
     /* states */
-    let (creator_data, set_creator_data) = signal(None::<CreatorInfo>);
+    let (creator_data, set_creator_data) = signal(None::<WtCreator>);
 
     /* Handlers */
     let fetch_creator_data = move |aid: String| {
@@ -54,14 +53,10 @@ pub fn CreatorPage() -> impl IntoView {
             let creator_data = parse_or_navigate!(
                 invoke(
                     "get_author_info",
-                    serde_wasm_bindgen::to_value(&FetchCreatorArgs {
-                        profile_id: aid,
-                        language: Language::default()
-                    })
-                    .unwrap()
+                    serde_wasm_bindgen::to_value(&FetchCreatorArgs { profile_id: aid }).unwrap()
                 )
                 .await,
-                Ty = CreatorInfo,
+                Ty = WtCreator,
                 push_toast,
                 navigate,
                 "/"
@@ -111,7 +106,7 @@ pub fn CreatorPage() -> impl IntoView {
                 </div>
                 <h1 class="author_name">{move || creator_data.get().unwrap().name}</h1>
                 <p class="followers">
-                    {move || creator_data.get().unwrap().followers.unwrap_or_default()} " followers"
+                    {move || creator_data.get().unwrap().followers} " followers"
                 </p>
 
                 <div id="webtoons">
@@ -120,7 +115,7 @@ pub fn CreatorPage() -> impl IntoView {
                         key=|wt| wt.id.wt_id
                         let(wt: WebtoonSearchInfo)
                     >
-                        <Webtoon wt_info=wt.clone() is_local=false />
+                        <Webtoon wt_info=wt.clone() is_local=true />
                     </For>
                 </div>
             </div>

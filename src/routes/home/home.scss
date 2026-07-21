@@ -18,6 +18,8 @@
   justify-content: space-around;
   align-items: center;
 
+  margin-top: 50px;
+
   .logo {
     width: 64px;
   }
@@ -58,7 +60,9 @@
         color: red;
       }
 
-      transition: opacity 0.3s, color 0.1s;
+      transition:
+        opacity 0.3s,
+        color 0.1s;
     }
 
     input {
@@ -97,6 +101,8 @@ nav {
   display: flex;
   justify-content: space-around;
   align-items: center;
+
+  margin-bottom: 20px;
 
   button {
     width: 45%;

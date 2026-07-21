@@ -1,9 +1,12 @@
+pub mod comments;
+mod comments_resp_type;
+
 use std::path::Path;
 
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
 
-use crate::{generate_webtoon_url, image_dl::download_images, DownloadState, WebtoonId};
+use crate::{DownloadState, WebtoonId, generate_webtoon_url, image_dl::download_images};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EpisodePreview {
@@ -21,22 +24,10 @@ impl EpisodePreview {
     fn from_html_element(parent_id: WebtoonId, element: &ElementRef<'_>) -> Result<Self, String> {
         let ep_url_selector = Selector::parse("a").unwrap();
         let date_selector = Selector::parse(".date").unwrap();
-        let ep_num_selector = Selector::parse(".tx").unwrap();
+        // let ep_num_selector = Selector::parse(".tx").unwrap(); // this doesn't exist anymore for canvas webtoon
         let title_selector = Selector::parse(".subj > span").unwrap();
         let thumb_selector = Selector::parse(".thmb > img").unwrap();
         let likes_selector = Selector::parse(".like_area").unwrap();
-
-        let ep_num = element
-            .select(&ep_num_selector)
-            .next()
-            .ok_or("No ep num")?
-            .text()
-            .collect::<String>()
-            .trim()
-            .trim_start_matches("#")
-            .to_string()
-            .parse::<usize>()
-            .map_err(|e| e.to_string())?;
 
         let date = element
             .select(&date_selector)
@@ -79,6 +70,20 @@ impl EpisodePreview {
             .ok_or("No ep url href")?
             .to_string();
 
+        let ep_num = ep_url
+            .split("?")
+            .nth(1)
+            .ok_or("No params in ep url")?
+            .split("&")
+            .find_map(|param| {
+                let (k, v) = param.split_once("=")?;
+                match k == "episode_no" {
+                    true => v.parse::<usize>().ok(),
+                    false => None,
+                }
+            })
+            .ok_or("No ep num")?;
+
         Ok(EpisodePreview {
             parent_wt_id: parent_id,
             number: ep_num,
@@ -87,6 +92,77 @@ impl EpisodePreview {
             likes,
             posted_at: date,
             ep_url,
+        })
+    }
+
+    pub async fn get_episode_data<F: Fn(DownloadState) + Clone>(
+        &self,
+        info_cb: F,
+    ) -> Result<EpisodeData, String> {
+        info_cb(DownloadState::EpisodeInfo(0));
+        let raw_html = reqwest::get(&self.ep_url)
+            .await
+            .map_err(|e| e.to_string())?
+            .text()
+            .await
+            .map_err(|e| e.to_string())?;
+        info_cb(DownloadState::EpisodeInfo(50));
+
+        let document = Html::parse_document(&raw_html);
+        let panel_selector = Selector::parse("#_imageList > img").unwrap();
+        let note_selector = Selector::parse(".author_text").unwrap();
+        let name_selector = Selector::parse(".author_area .author_name").unwrap();
+        let thumb_selector = Selector::parse(".author_area > .profile > img").unwrap();
+
+        let mut panels = vec![];
+        for img in document.select(&panel_selector) {
+            panels.push(img.attr("data-url").ok_or("No panel url")?.to_string());
+        }
+
+        let author_note = document
+            .select(&note_selector)
+            .next()
+            .map(|e| e.text().collect::<String>().trim().to_string());
+        let author_name = document
+            .select(&name_selector)
+            .next()
+            .ok_or("No author name")?
+            .text()
+            .collect::<String>()
+            .trim()
+            .to_string();
+        let author_id = match document
+            .select(&name_selector)
+            .next()
+            .ok_or("No author id")?
+            .attr("href")
+            .map(|href| {
+                href.split("/")
+                    .last()
+                    .map(|aid| aid.to_string())
+                    .ok_or("Author Id not found".to_string())
+            }) {
+            Some(Ok(aid)) => Some(aid),
+            Some(Err(e)) => return Err(e),
+            None => None,
+        };
+        let author_thumb = document.select(&thumb_selector).next().and_then(|e| {
+            e.attr("src")
+                .ok_or("No author thumb src")
+                .map(|at| at.to_string())
+                .ok()
+        });
+
+        info_cb(DownloadState::EpisodeInfo(100));
+
+        Ok(EpisodeData {
+            parent_wt_id: self.parent_wt_id,
+            number: self.number,
+            panels,
+            author_note,
+            author_name,
+            author_id,
+            author_thumb,
         })
     }
 }
@@ -235,78 +311,5 @@ impl EpisodeData {
         }
 
         Ok(())
-    }
-}
-
-impl EpisodePreview {
-    pub async fn get_episode_data<F: Fn(DownloadState) + Clone>(
-        &self,
-        info_cb: F,
-    ) -> Result<EpisodeData, String> {
-        info_cb(DownloadState::EpisodeInfo(0));
-        let raw_html = reqwest::get(&self.ep_url)
-            .await
-            .map_err(|e| e.to_string())?
-            .text()
-            .await
-            .map_err(|e| e.to_string())?;
-        info_cb(DownloadState::EpisodeInfo(50));
-
-        let document = Html::parse_document(&raw_html);
-        let panel_selector = Selector::parse("#_imageList > img").unwrap();
-        let note_selector = Selector::parse(".author_text").unwrap();
-        let name_selector = Selector::parse(".author_area .author_name").unwrap();
-        let thumb_selector = Selector::parse(".author_area > .profile > img").unwrap();
-
-        let mut panels = vec![];
-        for img in document.select(&panel_selector) {
-            panels.push(img.attr("data-url").ok_or("No panel url")?.to_string());
-        }
-
-        let author_note = document
-            .select(&note_selector)
-            .next()
-            .map(|e| e.text().collect::<String>().trim().to_string());
-        let author_name = document
-            .select(&name_selector)
-            .next()
-            .ok_or("No author name")?
-            .text()
-            .collect::<String>()
-            .trim()
-            .to_string();
-        let author_id = match document
-            .select(&name_selector)
-            .next()
-            .ok_or("No author id")?
-            .attr("href")
-            .map(|href| {
-                href.split("/")
-                    .last()
-                    .map(|aid| aid.to_string())
-                    .ok_or("Author Id not found".to_string())
-            }) {
-            Some(Ok(aid)) => Some(aid),
-            Some(Err(e)) => return Err(e),
-            None => None,
-        };
-        let author_thumb = document.select(&thumb_selector).next().and_then(|e| {
-            e.attr("src")
-                .ok_or("No author thumb src")
-                .map(|at| at.to_string())
-                .ok()
-        });
-
-        info_cb(DownloadState::EpisodeInfo(100));
-
-        Ok(EpisodeData {
-            parent_wt_id: self.parent_wt_id,
-            number: self.number,
-            panels,
-            author_note,
-            author_name,
-            author_id,
-            author_thumb,
-        })
     }
 }
