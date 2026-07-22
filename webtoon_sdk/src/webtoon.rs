@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::{
-    DownloadState, Genre, Schedule, WebtoonId, WtType, episodes::{EpisodesExtraMethod, EpisodePreview, check_for_new_eps, scrap_episodes_info}, generate_webtoon_url, image_dl::download_images,
+    DownloadState, Genre, Schedule, WebtoonId, WtType,
+    episodes::{EpisodePreview, EpisodesExtraMethod, check_for_new_eps, scrap_episodes_info},
+    generate_webtoon_url,
+    image_dl::download_images,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -277,6 +280,7 @@ impl WebtoonInfo {
                 info_cb,
             )
             .await?;
+
             for (e, new_thumb_url) in eps.iter_mut().zip(new_thumbnails_url) {
                 e.thumbnail = new_thumb_url
             }

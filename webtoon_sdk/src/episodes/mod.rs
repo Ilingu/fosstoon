@@ -1,7 +1,7 @@
 pub mod comments;
 mod comments_resp_type;
 
-use std::path::Path;
+use std::{collections::HashSet, path::Path};
 
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -167,14 +167,13 @@ impl EpisodePreview {
     }
 }
 
-
 pub trait EpisodesExtraMethod {
     fn get_last_ep_num(&self) -> usize;
 }
 
 impl EpisodesExtraMethod for Vec<EpisodePreview> {
     fn get_last_ep_num(&self) -> usize {
-       self.last().map(|ep| ep.number).unwrap_or(1)
+        self.last().map(|ep| ep.number).unwrap_or(1)
     }
 }
 
@@ -198,6 +197,8 @@ async fn scrap_episodes_info_until<F: Fn(DownloadState) + Clone>(
     let mut progress = 0;
 
     let mut episodes = vec![];
+    let mut ep_seen = HashSet::<usize>::new();
+
     let mut real_url = None;
     'outer: for page in 1.. {
         let url = match real_url {
@@ -213,10 +214,25 @@ async fn scrap_episodes_info_until<F: Fn(DownloadState) + Clone>(
         let raw_html = resp.text().await.map_err(|e| e.to_string())?;
         let document = Html::parse_document(&raw_html);
 
+        /* An other infinite loop detection method: not at the expected page, but this was not implemented in pratice because the "ep_num already seen" is considered more reliable over time
+
+           let current_page_selector = Selector::parse(".pg_page[aria-current=true]").unwrap();
+           let wt_page = document.select(&current_page_selector).next().text().parse()
+           // check if wt_page=page, if not: break
+        */
+
         let mut last_ep_id = None;
         for element in document.select(&ep_selector) {
             let ep = EpisodePreview::from_html_element(id, &element)?;
             let ep_num = ep.number;
+
+            // if we already have seen this ep_num before in our search it means that we looped. So we stop.
+            // this can happen when until_ep_id is set to 1 whereas the true first webtoon ep id is 2.
+            // which would create an infinite loop
+            if ep_seen.contains(&ep_num) {
+                break 'outer;
+            }
+            ep_seen.insert(ep_num); // insert it for later detection
 
             match edge_case {
                 ScrapEdgeCase::Inclusive => {
