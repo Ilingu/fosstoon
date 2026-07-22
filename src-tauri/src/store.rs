@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Deref, time::SystemTime};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
-use webtoon::platform::webtoons::Language;
-use webtoon_sdk::{webtoon::WebtoonInfo, WebtoonId};
+use webtoon_sdk::{webtoon::WebtoonInfo, Language, WebtoonId};
 
 use crate::constants::{USER_LANG_KEY, USER_STORE, USER_WEBTOONS_KEY, WEBTOONS_STORE};
 

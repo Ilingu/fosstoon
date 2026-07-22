@@ -167,6 +167,17 @@ impl EpisodePreview {
     }
 }
 
+
+pub trait EpisodesExtraMethod {
+    fn get_last_ep_num(&self) -> usize;
+}
+
+impl EpisodesExtraMethod for Vec<EpisodePreview> {
+    fn get_last_ep_num(&self) -> usize {
+       self.last().map(|ep| ep.number).unwrap_or(1)
+    }
+}
+
 /* Functions */
 
 pub enum ScrapEdgeCase {

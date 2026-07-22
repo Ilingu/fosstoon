@@ -17,6 +17,7 @@ pub struct Post {
     pub id: String,
     pub content: String,
     pub is_spoiler: bool,
+    pub is_top: bool,
     pub upvotes: u32,
     pub downvotes: u32,
     pub posted_at: u64,
@@ -24,6 +25,7 @@ pub struct Post {
 }
 
 pub trait PostExtension {
+    #[allow(async_fn_in_trait)]
     async fn fetch_posts(wt_id: WebtoonId, ep_num: usize) -> Result<Vec<Post>, String>;
 }
 

@@ -37,6 +37,7 @@ impl Alert {
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum DownloadState {
+    CreatorData(CreatorDownloadState),
     WebtoonData(u8),
     EpisodeInfo(u8),
     CachingImages(u8),
@@ -44,16 +45,30 @@ pub enum DownloadState {
     Idle,
     Completed,
 }
+#[derive(Debug, Clone, Deserialize)]
+pub enum CreatorDownloadState {
+    Basic(u8),
+    Title(u8),
+    Posts(u8),
+}
 
 impl DownloadState {
     pub fn get_progress(&self) -> u8 {
         *match self {
-            Self::WebtoonData(p) | Self::CachingImages(p) | Self::EpisodeInfo(p) => p,
+            Self::WebtoonData(p)
+            | Self::CachingImages(p)
+            | Self::EpisodeInfo(p)
+            | Self::CreatorData(CreatorDownloadState::Basic(p))
+            | Self::CreatorData(CreatorDownloadState::Title(p))
+            | Self::CreatorData(CreatorDownloadState::Posts(p)) => p,
             _ => &0_u8,
         }
     }
     pub fn get_state(&self) -> String {
         match self {
+            Self::CreatorData(CreatorDownloadState::Basic(_)) => "Fetching author's basic info",
+            Self::CreatorData(CreatorDownloadState::Title(_)) => "Fetching author's webtoons",
+            Self::CreatorData(CreatorDownloadState::Posts(_)) => "Fetching author's posts",
             Self::WebtoonData(_) => "Fetching webtoon informations...",
             Self::EpisodeInfo(_) => "Fetching episodes informations...",
             Self::CachingImages(_) => "Downloading images (thumbnail|panels: may take a while)...",
@@ -216,6 +231,7 @@ pub struct Post {
     pub id: String,
     pub content: String,
     pub is_spoiler: bool,
+    pub is_top: bool,
     pub upvotes: u32,
     pub downvotes: u32,
     pub posted_at: u64,

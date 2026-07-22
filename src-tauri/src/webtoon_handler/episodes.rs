@@ -5,7 +5,7 @@ use tauri_plugin_store::StoreExt;
 use webtoon_sdk::{
     episodes::{
         comments::{Post, PostExtension},
-        EpisodeData,
+        EpisodeData, EpisodesExtraMethod,
     },
     webtoon::WebtoonInfo,
     DownloadState, WebtoonId,
@@ -78,11 +78,11 @@ pub async fn get_episode_data(
         .map_err(|e| e.to_string())?;
     let episodes = webtoon.episodes.ok_or("No episode found in store")?;
 
+    let has_next_ep = ep_num != episodes.get_last_ep_num();
     let episode = episodes
-        .get(ep_num - 1)
-        .cloned()
+        .into_iter()
+        .find(|ep| ep.number == ep_num)
         .ok_or("Requested episode not found in store")?;
-    let has_next_ep = ep_num != episodes.len();
 
     let mut ep_data = episode.get_episode_data(dl_progress_cb).await?;
 

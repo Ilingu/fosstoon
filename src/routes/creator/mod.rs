@@ -8,7 +8,7 @@ use leptos_router::{
 use icondata as i;
 use leptos_icons::Icon;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -21,6 +21,9 @@ use crate::{
 extern "C" {
     #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"], catch)]
     async fn invoke(cmd: &str, args: JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "event"])]
+    async fn listen(event: &str, handler: &js_sys::Function) -> JsValue;
 }
 
 #[derive(Params, PartialEq, Debug, Clone)]
@@ -44,11 +47,26 @@ pub fn CreatorPage() -> impl IntoView {
 
     /* states */
     let (creator_data, set_creator_data) = signal(None::<WtCreator>);
+    let (dl_state, set_dl_state) = signal(DownloadState::Idle);
 
     /* Handlers */
     let fetch_creator_data = move |aid: String| {
         let navigate = use_navigate();
         spawn_local(async move {
+            // open data stream to get info of webtoon download progression
+            let closure = Closure::<dyn FnMut(_)>::new(move |jsv: JsValue| {
+                #[derive(Deserialize)]
+                struct Event {
+                    payload: DownloadState,
+                }
+
+                if let Ok(Event { payload: dl_info }) = serde_wasm_bindgen::from_value::<Event>(jsv)
+                {
+                    set_dl_state.set(dl_info);
+                };
+            });
+            listen("creator_dl_channel", closure.as_ref().unchecked_ref()).await;
+
             // fetch creator
             let creator_data = parse_or_navigate!(
                 invoke(
@@ -62,6 +80,9 @@ pub fn CreatorPage() -> impl IntoView {
                 "/"
             );
             set_creator_data.set(Some(creator_data));
+
+            // close data gathering
+            closure.forget();
         });
     };
 
@@ -91,11 +112,7 @@ pub fn CreatorPage() -> impl IntoView {
         <Show
             when=move || { creator_data.get().is_some() }
             fallback=move || {
-                view! {
-                    <WaitingScreen dl_state=RwSignal::new(DownloadState::WebtoonData(0))
-                        .split()
-                        .0 />
-                }
+                view! { <WaitingScreen dl_state /> }
             }
         >
             <div id="creator_page">

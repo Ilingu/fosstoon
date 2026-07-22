@@ -11,12 +11,20 @@ use serde::{Deserialize, Serialize};
 /* Type Definition */
 #[derive(Debug, Clone, Serialize)]
 pub enum DownloadState {
+    CreatorData(CreatorDownloadState),
     WebtoonData(u8),
     EpisodeInfo(u8),
     CachingImages(u8),
 
     Idle,
     Completed,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum CreatorDownloadState {
+    Basic(u8),
+    Title(u8),
+    Posts(u8),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -157,7 +165,7 @@ impl TryFrom<String> for Schedule {
         let raw_schedule = value.to_lowercase();
         match raw_schedule.as_str() {
             "completed" => Ok(Self::Completed),
-            "daily" => Ok(Self::Daily),
+            "daily" | "everyday" => Ok(Self::Daily),
             _ => {
                 let weekdays = raw_schedule
                     .replace("every ", "")

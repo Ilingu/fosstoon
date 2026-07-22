@@ -75,11 +75,6 @@ pub fn EpisodePage() -> impl IntoView {
     /* Handlers */
     let fetch_post = move || {
         if let Some(ep_data) = episode_data.get_untracked() {
-            push_toast.run(Alert::new(
-                "Posts are loading, it may take a while",
-                AlertLevel::Info,
-                None,
-            ));
             spawn_local(async move {
                 let posts = parse_or_toast!(
                     invoke(
@@ -327,7 +322,7 @@ pub fn EpisodePage() -> impl IntoView {
 
                 </div>
                 <div class="comments">
-                    <h3>"Top Comments" <Icon icon=i::BiCommentDetailRegular /></h3>
+                    <h3>"Comments" <Icon icon=i::BiCommentDetailRegular /></h3>
 
                     <Show
                         when=move || ep_comments.get().is_some()
@@ -363,7 +358,11 @@ fn PostComponent(post_data: Post) -> impl IntoView {
 
     view! {
         <div class="comment">
-            <p class="poster">{post_data.poster_name}</p>
+            <p class="poster">
+                {post_data.poster_name} <Show when=move || post_data.is_top>
+                    <span class="comment_top">"TOP"</span>
+                </Show>
+            </p>
             <p class="date">{date}</p>
             <p class="content" on:click=move |_| show_spoiler.update(|s_sp| *s_sp = s_sp.not())>
                 {move || match (post_data.is_spoiler, show_spoiler.get()) {

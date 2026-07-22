@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::{
-    DownloadState, Genre, Schedule, WebtoonId, WtType,
-    episodes::{EpisodePreview, check_for_new_eps, scrap_episodes_info},
-    generate_webtoon_url,
-    image_dl::download_images,
+    DownloadState, Genre, Schedule, WebtoonId, WtType, episodes::{EpisodesExtraMethod, EpisodePreview, check_for_new_eps, scrap_episodes_info}, generate_webtoon_url, image_dl::download_images,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -113,18 +110,17 @@ impl WebtoonInfo {
             }
         };
         let creator_id = match creators.len() == 1 {
-            true => Some(
-                document
-                    .select(&creator_id_selector)
-                    .next()
-                    .ok_or("No creator id")?
-                    .attr("href")
-                    .ok_or("No href aid")?
-                    .split("/")
-                    .last()
-                    .map(|aid| aid.to_string())
-                    .ok_or("Author Id not found".to_string())?,
-            ),
+            true => match document.select(&creator_id_selector).next() {
+                Some(elem) => Some(
+                    elem.attr("href")
+                        .ok_or("No href aid")?
+                        .split("/")
+                        .last()
+                        .map(|aid| aid.to_string())
+                        .ok_or("Author Id not found".to_string())?,
+                ),
+                None => None, // no <a> tag found = no aid for this wt. But do not create an error for that
+            },
             false => None,
         };
         let schedule = match id.wt_type {
@@ -251,7 +247,7 @@ impl WebtoonInfo {
     ) -> Result<(), String> {
         if let Some(episodes) = self.episodes.as_mut() {
             let mut new_ep_since_last =
-                check_for_new_eps(self.id, episodes.len(), info_cb.clone()).await?;
+                check_for_new_eps(self.id, episodes.get_last_ep_num(), info_cb.clone()).await?;
             episodes.append(&mut new_ep_since_last);
             self.download_episodes_thumbnail(thumbnail_path, info_cb)
                 .await?;

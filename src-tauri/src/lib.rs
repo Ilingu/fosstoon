@@ -21,7 +21,7 @@ use crate::{
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
-use webtoon::platform::webtoons::Language;
+use webtoon_sdk::Language;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

@@ -247,7 +247,7 @@ pub fn WebtoonPage() -> impl IntoView {
                 });
                 set_wt_info.set(None);
                 push_toast.run(Alert::new(
-                    "Webtoon deleted successfully - please return to home",
+                    "Webtoon deleted successfully",
                     AlertLevel::Success,
                     Some(Duration::from_secs(4)),
                 ));
@@ -341,9 +341,9 @@ pub fn WebtoonPage() -> impl IntoView {
                         <button on:click=force_ep_reload>
                             <Icon icon=i::MdiReload />
                         </button>
-                        <button on:click=delete_webtoon>
+                        <a href="/" on:click=delete_webtoon>
                             <Icon icon=i::BiTrashAltRegular />
-                        </button>
+                        </a>
                         <button on:click=toggle_sub>
                             <Show
                                 when=move || {

@@ -26,6 +26,8 @@ pub struct RawComment {
     pub created_at: u64,
     pub settings: CommentSettings,
     pub reactions: Vec<CommentReaction>,
+
+    pub is_top: bool,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -89,12 +91,17 @@ impl TryFrom<RawComment> for Post {
             .find(|r| r.reaction_id == "post_like")
             .unwrap_or_default();
 
+        if value.created_by.name.is_empty() || value.body.is_empty() {
+            return Err("Empty comment".to_string());
+        }
+
         Ok(Self {
             wt_id: WebtoonId::new(wt_id, wt_type),
             ep_num,
             id: value.id,
             content: value.body,
             is_spoiler: value.settings.spoiler_filter == "ON",
+            is_top: value.is_top,
             upvotes: like_reaction
                 .emotions
                 .iter()

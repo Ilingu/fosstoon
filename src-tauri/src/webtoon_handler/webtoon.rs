@@ -1,54 +1,18 @@
 use std::time::SystemTime;
 
-use async_trait::async_trait;
 use nanorand::{Rng, WyRand};
 use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
-use webtoon::platform::webtoons::Webtoon;
 use webtoon_sdk::{
     image_dl::download_images,
     recommandations::{fetch_canvas, fetch_original},
     search::WebtoonSearchInfo,
     webtoon::WebtoonInfo,
-    DownloadState, WebtoonId, WtType,
+    DownloadState, WebtoonId,
 };
 
-use crate::{constants::WEBTOONS_STORE, webtoon_handler::FromWtType};
+use crate::constants::WEBTOONS_STORE;
 /* Implementations */
-
-#[async_trait]
-pub trait FromWebtoon {
-    async fn from_webtoon(webtoon: &Webtoon) -> Result<Self, String>
-    where
-        Self: Sized;
-}
-
-#[async_trait]
-impl FromWebtoon for WebtoonSearchInfo {
-    async fn from_webtoon(webtoon: &Webtoon) -> Result<Self, String> {
-        Ok(WebtoonSearchInfo {
-            id: WebtoonId::new(
-                webtoon.id() as usize,
-                WtType::from_wt_type(webtoon.r#type()),
-            ),
-            title: webtoon.title().await.map_err(|err| err.to_string())?,
-            thumbnail: webtoon
-                .thumbnail()
-                .await
-                .map_err(|err| err.to_string())?
-                .unwrap_or_default(),
-            creator: Some(
-                webtoon
-                    .creators()
-                    .await
-                    .map_err(|err| err.to_string())?
-                    .first()
-                    .map(|c| c.username().to_string())
-                    .unwrap_or_default(),
-            ),
-        })
-    }
-}
 
 /* Commands */
 
@@ -115,6 +79,7 @@ pub async fn delete_webtoon(app: tauri::AppHandle, id: WebtoonId) -> Result<(), 
         .store(WEBTOONS_STORE)
         .map_err(|_| "Failed to open wt store")?;
 
+    // TODO: should also delete images
     match webtoons_store.delete(id.wt_id.to_string()) {
         true => Ok(()),
         false => Err("Failed to delete webtoon from the store".to_string()),
