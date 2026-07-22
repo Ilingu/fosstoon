@@ -5,7 +5,7 @@ use tauri_plugin_store::StoreExt;
 use webtoon_sdk::{
     episodes::{
         comments::{Post, PostExtension},
-        EpisodeData, EpisodesExtraMethod,
+        EpisodeData,
     },
     webtoon::WebtoonInfo,
     DownloadState, WebtoonId,
@@ -58,7 +58,7 @@ pub async fn get_episode_data(
     app: tauri::AppHandle,
     wt_id: WebtoonId,
     ep_num: usize,
-) -> Result<(EpisodeData, bool), String> {
+) -> Result<(EpisodeData, Option<usize>), String> {
     if ep_num == 0 {
         return Err("episode number cannot be 0".to_string());
     }
@@ -78,17 +78,21 @@ pub async fn get_episode_data(
         .map_err(|e| e.to_string())?;
     let episodes = webtoon.episodes.ok_or("No episode found in store")?;
 
-    let has_next_ep = ep_num != episodes.get_last_ep_num();
-    let episode = episodes
-        .into_iter()
-        .find(|ep| ep.number == ep_num)
+    let episode_index = episodes
+        .iter()
+        .position(|ep| ep.number == ep_num)
         .ok_or("Requested episode not found in store")?;
 
-    let mut ep_data = episode.get_episode_data(dl_progress_cb).await?;
+    let mut ep_data = episodes
+        .get(episode_index)
+        .ok_or("Impossible requested episode not found in store")?
+        .get_episode_data(dl_progress_cb)
+        .await?;
+    let next_ep_num = episodes.get(episode_index + 1).map(|ep| ep.number);
 
     // episodes panels are stored temporarily in cache
     let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
     ep_data.dl_panels(&cache_dir, dl_progress_cb).await?;
 
-    Ok((ep_data, has_next_ep))
+    Ok((ep_data, next_ep_num))
 }

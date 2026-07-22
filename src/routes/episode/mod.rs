@@ -46,7 +46,7 @@ struct EpIdArgs {
 struct WebtoonQueryArgs {
     wt_id: Option<usize>,
     wt_type: Option<WtType>,
-    prev_ep_read: Option<bool>,
+    prev_ep_read: Option<usize>,
 }
 
 #[derive(Params, PartialEq, Debug, Clone)]
@@ -67,7 +67,7 @@ pub fn EpisodePage() -> impl IntoView {
     /* states */
     let user_state = expect_context::<Store<UserData>>();
 
-    let (episode_data, set_episode_data) = signal(None::<(EpisodeData, bool)>);
+    let (episode_data, set_episode_data) = signal(None::<(EpisodeData, Option<usize>)>);
     let (ep_comments, set_ep_comments) = signal(None::<Vec<Post>>);
     let (dl_state, set_dl_state) = signal(DownloadState::Idle);
     let (see_back_btn, set_see_back_btn) = signal(false);
@@ -118,7 +118,7 @@ pub fn EpisodePage() -> impl IntoView {
                     serde_wasm_bindgen::to_value(&EpIdArgs { wt_id, ep_num }).unwrap()
                 )
                 .await,
-                Ty = (EpisodeData, bool),
+                Ty = (EpisodeData, Option<usize>),
                 push_toast,
                 navigate,
                 &format!("/webtoon?wt_id={}&wt_type={}", wt_id.wt_id, wt_id.wt_type)
@@ -131,8 +131,8 @@ pub fn EpisodePage() -> impl IntoView {
         });
     };
 
-    let mark_prev_ep_as_read = move |wt_id: WebtoonId, current_ep: usize| {
-        if current_ep <= 1 {
+    let mark_prev_ep_as_read = move |wt_id: WebtoonId, prev_ep_num: usize| {
+        if prev_ep_num < 1 {
             return;
         }
         spawn_local(async move {
@@ -141,7 +141,7 @@ pub fn EpisodePage() -> impl IntoView {
                     "mark_as_read",
                     serde_wasm_bindgen::to_value(&EpIdArgs {
                         wt_id,
-                        ep_num: current_ep - 1
+                        ep_num: prev_ep_num
                     })
                     .unwrap()
                 )
@@ -152,7 +152,7 @@ pub fn EpisodePage() -> impl IntoView {
 
             user_state.update(|us| {
                 us.webtoons.entry(wt_id.wt_id.to_string()).and_modify(|wt| {
-                    wt.episode_seen.insert((current_ep - 1).to_string(), true);
+                    wt.episode_seen.insert(prev_ep_num.to_string(), true);
                     // BECAREFUL! This could be summarized as `SystemTime::now()` but
                     // because of the bad implementation of SystemTime in leptos+tauri as of now
                     // it breaks the app in a weird way (impossible to navigate in the app after this function call).
@@ -184,8 +184,8 @@ pub fn EpisodePage() -> impl IntoView {
                 set_ep_comments.set(None);
 
                 let webtoon_id = WebtoonId::new(wt_id, wt_type);
-                if prev_ep_read.unwrap_or_default() {
-                    mark_prev_ep_as_read(webtoon_id, ep_num);
+                if let Some(prev_ep_num) = prev_ep_read {
+                    mark_prev_ep_as_read(webtoon_id, prev_ep_num);
                 }
                 fetch_ep_data(webtoon_id, ep_num);
             }
@@ -274,17 +274,14 @@ pub fn EpisodePage() -> impl IntoView {
                 </div>
                 <div class="action">
                     <Show
-                        when=move || episode_data.get().unwrap().1
+                        when=move || episode_data.get().unwrap().1.is_some()
                         fallback=move || {
                             view! {
                                 <a
                                     href="javascript:void(0)"
                                     on:click=move |_| {
                                         let ep_data = episode_data.get().unwrap().0;
-                                        mark_prev_ep_as_read(
-                                            ep_data.parent_wt_id,
-                                            ep_data.number + 1,
-                                        );
+                                        mark_prev_ep_as_read(ep_data.parent_wt_id, ep_data.number);
                                         push_toast
                                             .run(
                                                 Alert::new(
@@ -304,17 +301,27 @@ pub fn EpisodePage() -> impl IntoView {
                         }
                     >
                         <a href=move || {
-                            let ep_data = episode_data.get().unwrap().0;
+                            let (ep_data, next_ep_num) = episode_data.get().unwrap();
                             format!(
-                                "/webtoon/episode/{}?wt_id={}&wt_type={}&prev_ep_read=true",
-                                ep_data.number + 1,
+                                "/webtoon/episode/{}?wt_id={}&wt_type={}&prev_ep_read={}",
+                                next_ep_num.unwrap_or(ep_data.number + 1),
                                 ep_data.parent_wt_id.wt_id,
                                 ep_data.parent_wt_id.wt_type,
+                                ep_data.number,
                             )
                         }>
                             <div>
                                 <p>"Next episode: "</p>
-                                <p>"Episode " {move || episode_data.get().unwrap().0.number + 1}</p>
+                                <p>
+                                    "Episode "
+                                    {move || {
+                                        episode_data
+                                            .get()
+                                            .unwrap()
+                                            .1
+                                            .unwrap_or(episode_data.get().unwrap().0.number + 1)
+                                    }}
+                                </p>
                             </div>
                             <Icon icon=i::AiCaretRightOutlined />
                         </a>
