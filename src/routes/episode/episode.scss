@@ -1,7 +1,7 @@
 #episode_page {
   .nav_back {
     svg {
-      color: rgba(0, 0, 0, 0.4);
+      color: rgb(255, 202, 58, 0.4);
     }
   }
 
@@ -117,7 +117,6 @@
       .poster {
         display: flex;
         align-items: center;
-        // justify-content: center;
         .comment_top {
           margin-left: 5px;
           background: #0d6efd;

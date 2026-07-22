@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::fs;
 
 use crate::DownloadState;
@@ -25,6 +25,12 @@ pub async fn download_images<F: Fn(DownloadState) + Clone>(
     let images_path = images_url
         .iter()
         .map(|url| {
+            let wt_img_uid = {
+                let mut it = url.split("/").skip(3);
+                let id1 = it.next();
+                let id2 = it.next();
+                id1.zip(id2).map(|(a, b)| format!("{}{}", a, b))
+            };
             let filename = url
                 .split("/")
                 .last()
@@ -32,8 +38,12 @@ pub async fn download_images<F: Fn(DownloadState) + Clone>(
                 .split("?")
                 .next()
                 .expect("Impossible no filename");
+            let unique_filename = wt_img_uid
+                .map(|uid| format!("{uid}{filename}"))
+                .unwrap_or(filename.to_string());
+
             cache_dir
-                .join(to_unique_filename(filename, &fuid))
+                .join(to_unique_filename(&unique_filename, &fuid))
                 .to_string_lossy()
                 .to_string()
         })

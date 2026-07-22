@@ -14,7 +14,10 @@ use wasm_bindgen::prelude::*;
 use crate::{
     components::{waiting_screen::WaitingScreen, webtoon::Webtoon},
     parse_or_navigate,
-    utility::types::{Alert, AlertLevel, DownloadState, WebtoonSearchInfo, WtCreator},
+    utility::{
+        convert_file_src,
+        types::{Alert, AlertLevel, CreatorPost, DownloadState, WebtoonSearchInfo, WtCreator},
+    },
 };
 
 #[wasm_bindgen]
@@ -133,6 +136,38 @@ pub fn CreatorPage() -> impl IntoView {
                         let(wt: WebtoonSearchInfo)
                     >
                         <Webtoon wt_info=wt.clone() is_local=true />
+                    </For>
+                </div>
+
+                <div id="author_posts">
+                    <h3>"Author's recent posts" <Icon icon=i::BiCommentDetailRegular /></h3>
+                    <For
+                        each=move || creator_data.get().unwrap().posts
+                        key=|post| post.created_at.to_string()
+                        let(post: CreatorPost)
+                    >
+                        <div class="post">
+                            <p class="poster">{move || creator_data.get().unwrap().name}</p>
+                            <p class="date">
+                                {js_sys::Date::new(&JsValue::from_f64(post.created_at as f64))
+                                    .to_date_string()
+                                    .as_string()}
+                            </p>
+                            <p class="content">{post.body}</p>
+                            {if let Some(path) = post.img_url {
+                                view! {
+                                    <div class="asset">
+                                        <img
+                                            src=move || convert_file_src(&path)
+                                            alt="Webtoon poster"
+                                        />
+                                    </div>
+                                }
+                                    .into_any()
+                            } else {
+                                ().into_any()
+                            }}
+                        </div>
                     </For>
                 </div>
             </div>
